@@ -57,6 +57,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        gradient: {
+          start: "hsl(var(--gradient-start))",
+          mid1: "hsl(var(--gradient-mid-1))",
+          mid2: "hsl(var(--gradient-mid-2))",
+          end: "hsl(var(--gradient-end))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -84,6 +90,9 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "float": "float 20s ease-in-out infinite",
+        "float-reverse": "float-reverse 25s ease-in-out infinite",
+        "fade-in-up": "fade-in-up 0.8s ease-out forwards",
       },
     },
   },
