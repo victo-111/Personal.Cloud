@@ -97,6 +97,7 @@ export default {
         "neon-flicker": "neon-flicker 3s linear infinite",
         "color-shift": "color-shift 8s linear infinite",
         "glitch-scan": "glitch-scan 4s linear infinite",
+        "glitch-text": "glitch-text 2s infinite",
       },
     },
   },
