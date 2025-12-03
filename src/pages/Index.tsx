@@ -2,16 +2,32 @@ import { GradientBackground } from "@/components/GradientBackground";
 import { WelcomeCard } from "@/components/WelcomeCard";
 import { Features } from "@/components/Features";
 import { Navbar } from "@/components/Navbar";
+import { AboutSection } from "@/components/AboutSection";
+import { ContactSection } from "@/components/ContactSection";
+import { Footer } from "@/components/Footer";
 
 const Index = () => {
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen scroll-smooth">
       <GradientBackground />
       <Navbar />
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4 pt-24 space-y-16">
+      
+      {/* Hero Section */}
+      <section id="hero" className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4 pt-24">
         <WelcomeCard />
-        <Features />
-      </div>
+      </section>
+      
+      {/* Features Section */}
+      <Features />
+      
+      {/* About Section */}
+      <AboutSection />
+      
+      {/* Contact Section */}
+      <ContactSection />
+      
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };

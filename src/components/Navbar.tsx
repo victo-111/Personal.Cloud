@@ -1,16 +1,30 @@
 import { useState } from "react";
-import { Menu, X, Zap, Home, Info, Mail, Settings } from "lucide-react";
+import { Menu, X, Zap, Home, Info, Mail, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { name: "Home", icon: Home, href: "#" },
-  { name: "About", icon: Info, href: "#" },
-  { name: "Contact", icon: Mail, href: "#" },
-  { name: "Settings", icon: Settings, href: "#" },
+  { name: "Home", icon: Home, href: "#hero" },
+  { name: "Features", icon: Layers, href: "#features" },
+  { name: "About", icon: Info, href: "#about" },
+  { name: "Contact", icon: Mail, href: "#contact" },
 ];
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
+    const targetId = href.replace("#", "");
+    const element = document.getElementById(targetId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+    setIsOpen(false);
+  };
+
+  const scrollToFeatures = () => {
+    document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-background/30 border-b border-primary/30">
@@ -55,7 +69,8 @@ export const Navbar = () => {
               <a
                 key={item.name}
                 href={item.href}
-                className="relative group px-4 py-2 rounded-lg transition-all duration-300 hover:bg-primary/10 border border-transparent hover:border-primary/50"
+                onClick={(e) => handleNavClick(e, item.href)}
+                className="relative group px-4 py-2 rounded-lg transition-all duration-300 hover:bg-primary/10 border border-transparent hover:border-primary/50 cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   <item.icon
@@ -80,6 +95,7 @@ export const Navbar = () => {
 
             {/* CTA Button */}
             <Button
+              onClick={scrollToFeatures}
               className="ml-4 relative overflow-hidden bg-primary/20 border border-primary/50 text-primary-foreground hover:bg-primary/30 hover:border-primary transition-all duration-300"
               style={{
                 boxShadow: `
@@ -121,7 +137,8 @@ export const Navbar = () => {
             <a
               key={item.name}
               href={item.href}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg bg-card/30 border border-primary/20 hover:border-primary/50 hover:bg-primary/10 transition-all"
+              onClick={(e) => handleNavClick(e, item.href)}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg bg-card/30 border border-primary/20 hover:border-primary/50 hover:bg-primary/10 transition-all cursor-pointer"
               style={{
                 animationDelay: `${index * 100}ms`,
                 boxShadow: "0 0 10px hsl(var(--primary) / 0.1)",
@@ -145,6 +162,7 @@ export const Navbar = () => {
           ))}
 
           <Button
+            onClick={scrollToFeatures}
             className="w-full mt-4 bg-primary/20 border border-primary/50 text-primary-foreground hover:bg-primary/30"
             style={{
               boxShadow: "0 0 20px hsl(var(--primary) / 0.3)",

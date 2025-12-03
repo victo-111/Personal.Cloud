@@ -30,7 +30,7 @@ const features = [
 
 export const Features = () => {
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 py-16">
+    <div id="features" className="w-full max-w-6xl mx-auto px-4 py-16 scroll-mt-20">
       <div className="text-center mb-12 animate-fade-in-up">
         <h2 className="text-4xl font-bold text-foreground mb-4 animate-glitch-text"
             style={{ 

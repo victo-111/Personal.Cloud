@@ -1,8 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Cloud, Sparkles } from "lucide-react";
+import { Cloud, Sparkles, ChevronDown } from "lucide-react";
 
 export const WelcomeCard = () => {
+  const scrollToFeatures = () => {
+    document.getElementById("features")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const scrollToAbout = () => {
+    document.getElementById("about")?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <Card className="w-full max-w-md p-8 shadow-2xl backdrop-blur-sm bg-card/95 animate-fade-in-up border border-primary/30">
       <div className="flex flex-col items-center space-y-6">
@@ -34,6 +42,7 @@ export const WelcomeCard = () => {
         <div className="flex flex-col w-full space-y-3 pt-2">
           <Button 
             size="lg" 
+            onClick={scrollToFeatures}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/50 hover:shadow-primary/70 transition-all duration-300 hover:scale-[1.02] border border-primary"
             style={{ 
               textShadow: "0 0 5px rgba(255,255,255,0.5)"
@@ -45,7 +54,8 @@ export const WelcomeCard = () => {
           
           <Button 
             size="lg" 
-            variant="outline" 
+            variant="outline"
+            onClick={scrollToAbout}
             className="w-full border-2 border-primary/50 hover:bg-primary/10 hover:border-primary transition-all duration-300 text-foreground shadow-lg shadow-primary/20"
             style={{ 
               textShadow: "0 0 5px hsl(var(--primary))"
@@ -62,6 +72,17 @@ export const WelcomeCard = () => {
            }}>
           Experience the future of cloud computing
         </p>
+        
+        {/* Scroll indicator */}
+        <div 
+          className="cursor-pointer animate-bounce"
+          onClick={scrollToFeatures}
+        >
+          <ChevronDown 
+            className="w-6 h-6 text-primary/70 hover:text-primary transition-colors"
+            style={{ filter: "drop-shadow(0 0 5px hsl(var(--primary)))" }}
+          />
+        </div>
       </div>
     </Card>
   );
