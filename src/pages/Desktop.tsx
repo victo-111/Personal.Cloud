@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Folder, FileText, Terminal, Settings, Image, Music, 
   Globe, Calculator, Calendar, Clock, Wifi, Battery, 
-  Volume2, X, Minus, Square, Search
+  Volume2, X, Minus, Square, Search, Code, MessageSquare, LogOut
 } from "lucide-react";
+import { CodeEditor } from "@/components/desktop/CodeEditor";
+import { FileManager } from "@/components/desktop/FileManager";
+import { MusicPlayer } from "@/components/desktop/MusicPlayer";
+import { GroupChat } from "@/components/desktop/GroupChat";
 
 interface Window {
   id: string;
@@ -18,11 +24,12 @@ interface Window {
 
 const desktopIcons = [
   { id: "files", name: "Files", icon: Folder },
+  { id: "code-editor", name: "Code Editor", icon: Code },
   { id: "terminal", name: "Terminal", icon: Terminal },
   { id: "browser", name: "Browser", icon: Globe },
   { id: "notes", name: "Notes", icon: FileText },
-  { id: "photos", name: "Photos", icon: Image },
   { id: "music", name: "Music", icon: Music },
+  { id: "chat", name: "Chat", icon: MessageSquare },
   { id: "calculator", name: "Calculator", icon: Calculator },
   { id: "settings", name: "Settings", icon: Settings },
 ];
@@ -31,21 +38,45 @@ const Desktop = () => {
   const [windows, setWindows] = useState<Window[]>([]);
   const [activeWindow, setActiveWindow] = useState<string | null>(null);
   const [time, setTime] = useState(new Date());
+  const [user, setUser] = useState<any>(null);
+  const navigate = useNavigate();
 
-  // Update time every second
-  useState(() => {
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session?.user) {
+        navigate("/auth");
+      } else {
+        setUser(session.user);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) {
+        navigate("/auth");
+      } else {
+        setUser(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
-  });
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
 
   const openWindow = (id: string, title: string, icon: React.ReactNode) => {
     const existingWindow = windows.find(w => w.id === id);
     if (existingWindow) {
       setActiveWindow(id);
       if (existingWindow.isMinimized) {
-        setWindows(windows.map(w => 
-          w.id === id ? { ...w, isMinimized: false } : w
-        ));
+        setWindows(windows.map(w => w.id === id ? { ...w, isMinimized: false } : w));
       }
       return;
     }
@@ -57,7 +88,7 @@ const Desktop = () => {
       isMinimized: false,
       isMaximized: false,
       position: { x: 100 + windows.length * 30, y: 100 + windows.length * 30 },
-      size: { width: 600, height: 400 },
+      size: { width: 700, height: 500 },
       content: getWindowContent(id),
     };
 
@@ -67,25 +98,27 @@ const Desktop = () => {
 
   const closeWindow = (id: string) => {
     setWindows(windows.filter(w => w.id !== id));
-    if (activeWindow === id) {
-      setActiveWindow(null);
-    }
+    if (activeWindow === id) setActiveWindow(null);
   };
 
   const minimizeWindow = (id: string) => {
-    setWindows(windows.map(w => 
-      w.id === id ? { ...w, isMinimized: true } : w
-    ));
+    setWindows(windows.map(w => w.id === id ? { ...w, isMinimized: true } : w));
   };
 
   const maximizeWindow = (id: string) => {
-    setWindows(windows.map(w => 
-      w.id === id ? { ...w, isMaximized: !w.isMaximized } : w
-    ));
+    setWindows(windows.map(w => w.id === id ? { ...w, isMaximized: !w.isMaximized } : w));
   };
 
   const getWindowContent = (id: string) => {
     switch (id) {
+      case "code-editor":
+        return <CodeEditor />;
+      case "files":
+        return <FileManager />;
+      case "music":
+        return <MusicPlayer />;
+      case "chat":
+        return <GroupChat />;
       case "terminal":
         return (
           <div className="h-full bg-black/90 p-4 font-mono text-sm text-primary">
@@ -108,19 +141,6 @@ const Desktop = () => {
             </div>
             <div className="flex-1 flex items-center justify-center">
               <p className="text-muted-foreground">Welcome to CloudSpace Browser</p>
-            </div>
-          </div>
-        );
-      case "files":
-        return (
-          <div className="h-full bg-background p-4">
-            <div className="grid grid-cols-4 gap-4">
-              {["Documents", "Downloads", "Pictures", "Music"].map(folder => (
-                <div key={folder} className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-card cursor-pointer transition-colors">
-                  <Folder className="w-12 h-12 text-primary" />
-                  <span className="text-sm text-foreground">{folder}</span>
-                </div>
-              ))}
             </div>
           </div>
         );
@@ -160,16 +180,15 @@ const Desktop = () => {
     }
   };
 
+  if (!user) return null;
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-background via-card to-background">
-      {/* Desktop Grid Background */}
+      {/* Grid Background */}
       <div 
         className="absolute inset-0 opacity-10"
         style={{
-          backgroundImage: `
-            linear-gradient(hsl(var(--primary) / 0.3) 1px, transparent 1px),
-            linear-gradient(90deg, hsl(var(--primary) / 0.3) 1px, transparent 1px)
-          `,
+          backgroundImage: `linear-gradient(hsl(var(--primary) / 0.3) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / 0.3) 1px, transparent 1px)`,
           backgroundSize: "50px 50px",
         }}
       />
@@ -188,10 +207,7 @@ const Desktop = () => {
             >
               <Icon className="w-6 h-6 text-primary" />
             </div>
-            <span 
-              className="text-xs text-foreground font-medium"
-              style={{ textShadow: "0 0 10px hsl(var(--background))" }}
-            >
+            <span className="text-xs text-foreground font-medium" style={{ textShadow: "0 0 10px hsl(var(--background))" }}>
               {name}
             </span>
           </button>
@@ -205,9 +221,7 @@ const Desktop = () => {
             key={window.id}
             onClick={() => setActiveWindow(window.id)}
             className={`absolute rounded-lg overflow-hidden border transition-all ${
-              activeWindow === window.id 
-                ? "border-primary/50 shadow-2xl shadow-primary/20 z-50" 
-                : "border-border/50 shadow-xl z-40"
+              activeWindow === window.id ? "border-primary/50 shadow-2xl shadow-primary/20 z-50" : "border-border/50 shadow-xl z-40"
             }`}
             style={{
               left: window.isMaximized ? 0 : window.position.x,
@@ -216,44 +230,30 @@ const Desktop = () => {
               height: window.isMaximized ? "calc(100% - 48px)" : window.size.height,
             }}
           >
-            {/* Window Title Bar */}
             <div className="h-10 bg-card/95 backdrop-blur-xl border-b border-border flex items-center justify-between px-3">
               <div className="flex items-center gap-2">
                 <span className="text-primary">{window.icon}</span>
                 <span className="text-sm font-medium text-foreground">{window.title}</span>
               </div>
               <div className="flex items-center gap-1">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); minimizeWindow(window.id); }}
-                  className="w-6 h-6 rounded flex items-center justify-center hover:bg-muted transition-colors"
-                >
+                <button onClick={(e) => { e.stopPropagation(); minimizeWindow(window.id); }} className="w-6 h-6 rounded flex items-center justify-center hover:bg-muted transition-colors">
                   <Minus className="w-3 h-3 text-muted-foreground" />
                 </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); maximizeWindow(window.id); }}
-                  className="w-6 h-6 rounded flex items-center justify-center hover:bg-muted transition-colors"
-                >
+                <button onClick={(e) => { e.stopPropagation(); maximizeWindow(window.id); }} className="w-6 h-6 rounded flex items-center justify-center hover:bg-muted transition-colors">
                   <Square className="w-3 h-3 text-muted-foreground" />
                 </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); closeWindow(window.id); }}
-                  className="w-6 h-6 rounded flex items-center justify-center hover:bg-destructive/20 transition-colors"
-                >
+                <button onClick={(e) => { e.stopPropagation(); closeWindow(window.id); }} className="w-6 h-6 rounded flex items-center justify-center hover:bg-destructive/20 transition-colors">
                   <X className="w-3 h-3 text-destructive" />
                 </button>
               </div>
             </div>
-            {/* Window Content */}
-            <div className="h-[calc(100%-40px)] overflow-auto">
-              {window.content}
-            </div>
+            <div className="h-[calc(100%-40px)] overflow-auto">{window.content}</div>
           </div>
         )
       ))}
 
       {/* Taskbar */}
       <div className="absolute bottom-0 left-0 right-0 h-12 bg-card/80 backdrop-blur-xl border-t border-primary/30 flex items-center justify-between px-4 z-50">
-        {/* Start Menu Area */}
         <div className="flex items-center gap-2">
           <button 
             className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/50 flex items-center justify-center hover:bg-primary/30 transition-all"
@@ -261,25 +261,23 @@ const Desktop = () => {
           >
             <div className="w-5 h-5 border-2 border-primary rounded-sm" />
           </button>
+          <button onClick={handleLogout} className="w-10 h-10 rounded-lg bg-card/50 border border-border/50 flex items-center justify-center hover:bg-destructive/20 transition-all">
+            <LogOut className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
 
-        {/* Open Windows */}
         <div className="flex-1 flex items-center justify-center gap-2">
           {windows.map(window => (
             <button
               key={window.id}
               onClick={() => {
                 if (window.isMinimized) {
-                  setWindows(windows.map(w => 
-                    w.id === window.id ? { ...w, isMinimized: false } : w
-                  ));
+                  setWindows(windows.map(w => w.id === window.id ? { ...w, isMinimized: false } : w));
                 }
                 setActiveWindow(window.id);
               }}
               className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
-                activeWindow === window.id && !window.isMinimized
-                  ? "bg-primary/20 border border-primary/50"
-                  : "bg-card/50 border border-border/50 hover:bg-card"
+                activeWindow === window.id && !window.isMinimized ? "bg-primary/20 border border-primary/50" : "bg-card/50 border border-border/50 hover:bg-card"
               }`}
             >
               <span className="text-primary">{window.icon}</span>
@@ -288,7 +286,6 @@ const Desktop = () => {
           ))}
         </div>
 
-        {/* System Tray */}
         <div className="flex items-center gap-3">
           <Wifi className="w-4 h-4 text-muted-foreground" />
           <Volume2 className="w-4 h-4 text-muted-foreground" />

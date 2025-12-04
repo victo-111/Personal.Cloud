@@ -14,8 +14,8 @@ export const WelcomeCard = () => {
     document.getElementById("about")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const goToDesktop = () => {
-    navigate("/desktop");
+  const goToAuth = () => {
+    navigate("/auth");
   };
 
   return (
@@ -49,7 +49,7 @@ export const WelcomeCard = () => {
         <div className="flex flex-col w-full space-y-3 pt-2">
           <Button 
             size="lg" 
-            onClick={goToDesktop}
+            onClick={goToAuth}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/50 hover:shadow-primary/70 transition-all duration-300 hover:scale-[1.02] border border-primary"
             style={{ 
               textShadow: "0 0 5px rgba(255,255,255,0.5)"
