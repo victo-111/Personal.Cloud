@@ -11,6 +11,8 @@ import { FileManager } from "@/components/desktop/FileManager";
 import { MusicPlayer } from "@/components/desktop/MusicPlayer";
 import { GroupChat } from "@/components/desktop/GroupChat";
 import { PhotoGallery } from "@/components/desktop/PhotoGallery";
+import { InteractiveTerminal } from "@/components/desktop/InteractiveTerminal";
+import { SettingsPanel } from "@/components/desktop/SettingsPanel";
 
 interface Window {
   id: string;
@@ -158,16 +160,7 @@ const Desktop = () => {
       case "photos":
         return <PhotoGallery />;
       case "terminal":
-        return (
-          <div className="h-full bg-black/90 p-4 font-mono text-sm text-primary">
-            <p className="text-accent">CloudSpace Terminal v1.0.0</p>
-            <p className="text-muted-foreground">Type 'help' for available commands</p>
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-primary">user@cloudspace:~$</span>
-              <span className="animate-pulse">▊</span>
-            </div>
-          </div>
-        );
+        return <InteractiveTerminal username={user?.email?.split("@")[0] || "user"} />;
       case "browser":
         return (
           <div className="h-full flex flex-col bg-background">
@@ -208,6 +201,14 @@ const Desktop = () => {
               ))}
             </div>
           </div>
+        );
+      case "settings":
+        return (
+          <SettingsPanel 
+            wallpaperThemes={wallpaperThemes}
+            currentWallpaper={wallpaper}
+            onWallpaperChange={setWallpaper}
+          />
         );
       default:
         return (
