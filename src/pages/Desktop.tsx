@@ -39,20 +39,76 @@ const wallpaperThemes = [
   { name: "forest", colors: ["hsl(120, 60%, 25%)", "hsl(160, 80%, 30%)", "hsl(80, 70%, 35%)", "hsl(140, 100%, 20%)"] },
   { name: "cosmic", colors: ["hsl(260, 100%, 25%)", "hsl(300, 100%, 30%)", "hsl(220, 80%, 35%)", "hsl(280, 100%, 40%)"] },
   { name: "neon", colors: ["hsl(320, 100%, 45%)", "hsl(180, 100%, 50%)", "hsl(60, 100%, 50%)", "hsl(280, 100%, 50%)"] },
+  { name: "midnight", colors: ["hsl(220, 80%, 15%)", "hsl(240, 70%, 20%)", "hsl(200, 60%, 25%)", "hsl(260, 50%, 18%)"] },
+  { name: "cherry", colors: ["hsl(340, 90%, 40%)", "hsl(350, 100%, 35%)", "hsl(320, 80%, 30%)", "hsl(0, 100%, 45%)"] },
+  { name: "arctic", colors: ["hsl(190, 80%, 60%)", "hsl(200, 70%, 50%)", "hsl(210, 90%, 70%)", "hsl(180, 60%, 55%)"] },
+  { name: "ember", colors: ["hsl(30, 100%, 45%)", "hsl(15, 100%, 40%)", "hsl(45, 100%, 50%)", "hsl(0, 90%, 35%)"] },
+  { name: "lavender", colors: ["hsl(270, 60%, 50%)", "hsl(280, 70%, 45%)", "hsl(260, 50%, 55%)", "hsl(290, 80%, 40%)"] },
+  { name: "matrix", colors: ["hsl(120, 100%, 25%)", "hsl(130, 80%, 20%)", "hsl(110, 90%, 30%)", "hsl(140, 70%, 15%)"] },
 ];
 
-// Icon styling for realistic macOS/Windows style icons
-const iconStyles: Record<string, { bg: string; iconColor: string; shadow: string }> = {
-  files: { bg: "linear-gradient(145deg, #5AC8FA 0%, #007AFF 100%)", iconColor: "text-white", shadow: "0 4px 12px rgba(0, 122, 255, 0.4)" },
-  "code-editor": { bg: "linear-gradient(145deg, #5856D6 0%, #AF52DE 100%)", iconColor: "text-white", shadow: "0 4px 12px rgba(88, 86, 214, 0.4)" },
-  terminal: { bg: "linear-gradient(145deg, #1C1C1E 0%, #2C2C2E 100%)", iconColor: "text-green-400", shadow: "0 4px 12px rgba(0, 0, 0, 0.5)" },
-  browser: { bg: "linear-gradient(145deg, #34AADC 0%, #5856D6 100%)", iconColor: "text-white", shadow: "0 4px 12px rgba(52, 170, 220, 0.4)" },
-  notes: { bg: "linear-gradient(145deg, #FFCC00 0%, #FF9500 100%)", iconColor: "text-amber-900", shadow: "0 4px 12px rgba(255, 149, 0, 0.4)" },
-  music: { bg: "linear-gradient(145deg, #FF2D55 0%, #FF3B30 100%)", iconColor: "text-white", shadow: "0 4px 12px rgba(255, 45, 85, 0.4)" },
-  chat: { bg: "linear-gradient(145deg, #34C759 0%, #30D158 100%)", iconColor: "text-white", shadow: "0 4px 12px rgba(52, 199, 89, 0.4)" },
-  calculator: { bg: "linear-gradient(145deg, #48484A 0%, #1C1C1E 100%)", iconColor: "text-orange-400", shadow: "0 4px 12px rgba(0, 0, 0, 0.5)" },
-  photos: { bg: "linear-gradient(145deg, #FF9500 0%, #FF2D55 50%, #AF52DE 100%)", iconColor: "text-white", shadow: "0 4px 12px rgba(175, 82, 222, 0.4)" },
-  settings: { bg: "linear-gradient(145deg, #8E8E93 0%, #636366 100%)", iconColor: "text-white", shadow: "0 4px 12px rgba(99, 99, 102, 0.4)" },
+// Icon styling for realistic macOS/Windows style icons with 3D effects
+const iconStyles: Record<string, { bg: string; iconColor: string; shadow: string; innerGlow: string }> = {
+  files: { 
+    bg: "linear-gradient(145deg, #64D2FF 0%, #0A84FF 50%, #0066CC 100%)", 
+    iconColor: "text-white", 
+    shadow: "0 8px 24px rgba(10, 132, 255, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
+  },
+  "code-editor": { 
+    bg: "linear-gradient(145deg, #BF5AF2 0%, #5E5CE6 50%, #3634A3 100%)", 
+    iconColor: "text-white", 
+    shadow: "0 8px 24px rgba(94, 92, 230, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
+  },
+  terminal: { 
+    bg: "linear-gradient(145deg, #3A3A3C 0%, #1C1C1E 50%, #000000 100%)", 
+    iconColor: "text-green-400", 
+    shadow: "0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.15), inset 0 -2px 4px rgba(0, 0, 0, 0.3)"
+  },
+  browser: { 
+    bg: "linear-gradient(145deg, #5AC8FA 0%, #007AFF 50%, #0055D4 100%)", 
+    iconColor: "text-white", 
+    shadow: "0 8px 24px rgba(0, 122, 255, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
+  },
+  notes: { 
+    bg: "linear-gradient(145deg, #FFD60A 0%, #FF9F0A 50%, #CC7A00 100%)", 
+    iconColor: "text-amber-900", 
+    shadow: "0 8px 24px rgba(255, 159, 10, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.15)"
+  },
+  music: { 
+    bg: "linear-gradient(145deg, #FF375F 0%, #FF2D55 50%, #D70015 100%)", 
+    iconColor: "text-white", 
+    shadow: "0 8px 24px rgba(255, 45, 85, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
+  },
+  chat: { 
+    bg: "linear-gradient(145deg, #30D158 0%, #34C759 50%, #248A3D 100%)", 
+    iconColor: "text-white", 
+    shadow: "0 8px 24px rgba(52, 199, 89, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
+  },
+  calculator: { 
+    bg: "linear-gradient(145deg, #636366 0%, #48484A 50%, #1C1C1E 100%)", 
+    iconColor: "text-orange-400", 
+    shadow: "0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.2), inset 0 -2px 4px rgba(0, 0, 0, 0.3)"
+  },
+  photos: { 
+    bg: "linear-gradient(145deg, #FF9F0A 0%, #FF375F 35%, #BF5AF2 70%, #5E5CE6 100%)", 
+    iconColor: "text-white", 
+    shadow: "0 8px 24px rgba(191, 90, 242, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
+  },
+  settings: { 
+    bg: "linear-gradient(145deg, #AEAEB2 0%, #8E8E93 50%, #636366 100%)", 
+    iconColor: "text-white", 
+    shadow: "0 8px 24px rgba(142, 142, 147, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3)",
+    innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
+  },
 };
 
 const desktopIcons = [
@@ -350,39 +406,54 @@ const Desktop = () => {
         }}
       />
 
-      {/* Desktop Icons - Smaller and movable */}
+      {/* Desktop Icons - Realistic 3D style */}
       {desktopIcons.map(({ id, name, icon: Icon }) => {
-        const style = iconStyles[id] || { bg: "linear-gradient(145deg, #5856D6, #AF52DE)", iconColor: "text-white", shadow: "0 4px 12px rgba(88, 86, 214, 0.4)" };
+        const style = iconStyles[id] || { 
+          bg: "linear-gradient(145deg, #5856D6, #AF52DE)", 
+          iconColor: "text-white", 
+          shadow: "0 4px 12px rgba(88, 86, 214, 0.4)",
+          innerGlow: "inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)"
+        };
         const pos = iconPositions.find(p => p.id === id) || { x: 24, y: 24 };
         return (
           <div
             key={id}
-            className={`absolute z-10 ${draggingIcon === id ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className={`absolute z-10 ${draggingIcon === id ? 'cursor-grabbing scale-110' : 'cursor-grab'} transition-transform duration-150`}
             style={{ left: pos.x, top: pos.y }}
             onMouseDown={(e) => handleIconMouseDown(e, id)}
             onDoubleClick={() => openWindow(id, name, <Icon className="w-3 h-3" />)}
           >
-            <div className="group flex flex-col items-center gap-1 p-1.5 rounded-lg hover:bg-white/10 transition-all duration-200">
+            <div className="group flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/10 transition-all duration-200">
               <div 
-                className="w-11 h-11 rounded-xl flex items-center justify-center group-hover:scale-105 transition-all duration-300 relative overflow-hidden"
+                className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 group-active:scale-95 transition-all duration-200 relative overflow-hidden"
                 style={{ 
                   background: style.bg,
-                  boxShadow: `${style.shadow}, inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.1)`
+                  boxShadow: `${style.shadow}, ${style.innerGlow}`
                 }}
               >
+                {/* Top highlight */}
                 <div 
-                  className="absolute inset-0 pointer-events-none"
+                  className="absolute inset-x-0 top-0 h-1/2 pointer-events-none"
                   style={{
-                    background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 50%)",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.1) 40%, transparent 100%)",
                     borderRadius: "inherit"
                   }}
                 />
-                <Icon className={`w-5 h-5 ${style.iconColor} drop-shadow-md relative z-10`} strokeWidth={1.5} />
+                {/* Bottom shadow */}
+                <div 
+                  className="absolute inset-x-0 bottom-0 h-1/3 pointer-events-none"
+                  style={{
+                    background: "linear-gradient(0deg, rgba(0,0,0,0.2) 0%, transparent 100%)",
+                    borderRadius: "inherit"
+                  }}
+                />
+                <Icon className={`w-7 h-7 ${style.iconColor} drop-shadow-lg relative z-10`} strokeWidth={1.5} />
               </div>
               <span 
-                className="text-[10px] text-white font-medium px-1 py-0.5 rounded max-w-[56px] truncate text-center"
+                className="text-[11px] text-white font-medium px-1.5 py-0.5 rounded-md max-w-[70px] truncate text-center backdrop-blur-sm"
                 style={{ 
-                  textShadow: "0 1px 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.5)"
+                  textShadow: "0 1px 4px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.6)",
+                  background: "rgba(0, 0, 0, 0.2)"
                 }}
               >
                 {name}

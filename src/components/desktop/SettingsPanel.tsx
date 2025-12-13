@@ -192,18 +192,19 @@ export const SettingsPanel = ({
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
             Wallpaper
           </h3>
+          <p className="text-xs text-muted-foreground mb-4">Choose a live animated wallpaper theme</p>
           
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-3">
             {wallpaperThemes.map((theme) => {
               const isSelected = currentWallpaper.name === theme.name;
               return (
                 <button
                   key={theme.name}
                   onClick={() => onWallpaperChange(theme)}
-                  className={`relative aspect-video rounded-xl overflow-hidden border-2 transition-all hover:scale-105 ${
+                  className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
                     isSelected 
-                      ? "border-primary ring-2 ring-primary/50" 
-                      : "border-border hover:border-primary/50"
+                      ? "border-primary ring-2 ring-primary/50 scale-105" 
+                      : "border-border/50 hover:border-primary/50"
                   }`}
                 >
                   <div 
@@ -220,15 +221,15 @@ export const SettingsPanel = ({
                   />
                   
                   {isSelected && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-5 h-5 text-primary-foreground" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="w-4 h-4 text-primary-foreground" />
                       </div>
                     </div>
                   )}
                   
-                  <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                    <span className="text-xs text-white font-medium capitalize">
+                  <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent">
+                    <span className="text-[10px] text-white font-medium capitalize">
                       {theme.name}
                     </span>
                   </div>
