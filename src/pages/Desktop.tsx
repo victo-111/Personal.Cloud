@@ -13,6 +13,7 @@ import { GroupChat } from "@/components/desktop/GroupChat";
 import { PhotoGallery } from "@/components/desktop/PhotoGallery";
 import { InteractiveTerminal } from "@/components/desktop/InteractiveTerminal";
 import { SettingsPanel } from "@/components/desktop/SettingsPanel";
+import { Calculator as CalculatorApp } from "@/components/desktop/Calculator";
 
 interface Window {
   id: string;
@@ -301,23 +302,7 @@ const Desktop = () => {
           </div>
         );
       case "calculator":
-        return (
-          <div className="h-full bg-background p-4 flex flex-col gap-2">
-            <div className="bg-card p-4 rounded-lg text-right text-2xl font-mono text-foreground">0</div>
-            <div className="grid grid-cols-4 gap-2 flex-1">
-              {["C", "±", "%", "÷", "7", "8", "9", "×", "4", "5", "6", "-", "1", "2", "3", "+", "0", ".", "="].map(btn => (
-                <button 
-                  key={btn} 
-                  className={`rounded-lg font-medium transition-all hover:bg-primary/20 ${
-                    ["÷", "×", "-", "+", "="].includes(btn) ? "bg-primary text-primary-foreground" : "bg-card text-foreground"
-                  }`}
-                >
-                  {btn}
-                </button>
-              ))}
-            </div>
-          </div>
-        );
+        return <CalculatorApp />;
       case "settings":
         return (
           <SettingsPanel 
