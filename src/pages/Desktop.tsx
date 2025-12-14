@@ -16,6 +16,7 @@ import { SettingsPanel } from "@/components/desktop/SettingsPanel";
 import { Calculator as CalculatorApp } from "@/components/desktop/Calculator";
 import { NotesApp } from "@/components/desktop/NotesApp";
 import { ProfileModal } from "@/components/desktop/ProfileModal";
+import { WebBrowser } from "@/components/desktop/WebBrowser";
 
 interface Window {
   id: string;
@@ -299,19 +300,7 @@ const Desktop = () => {
       case "terminal":
         return <InteractiveTerminal username={user?.email?.split("@")[0] || "user"} />;
       case "browser":
-        return (
-          <div className="h-full flex flex-col bg-background">
-            <div className="flex items-center gap-2 p-2 bg-card border-b border-border">
-              <div className="flex-1 flex items-center gap-2 px-3 py-1.5 bg-background rounded-lg border border-border">
-                <Search className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">Search or enter URL...</span>
-              </div>
-            </div>
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-muted-foreground">Welcome to CloudSpace Browser</p>
-            </div>
-          </div>
-        );
+        return <WebBrowser />;
       case "notes":
         return <NotesApp />;
       case "calculator":
