@@ -59,7 +59,7 @@ export const CodeEditor = () => {
       .single();
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: "Error creating file. Please try again.", variant: "destructive" });
       return;
     }
 
@@ -82,7 +82,7 @@ export const CodeEditor = () => {
       .eq("id", activeFile.id);
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: "Error saving file. Please try again.", variant: "destructive" });
       return;
     }
 

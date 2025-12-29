@@ -55,7 +55,7 @@ export const FileManager = () => {
     });
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: "Error creating item. Please try again.", variant: "destructive" });
       return;
     }
 
@@ -68,7 +68,7 @@ export const FileManager = () => {
   const deleteItem = async (id: string) => {
     const { error } = await supabase.from("user_files").delete().eq("id", id);
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: "Error deleting item. Please try again.", variant: "destructive" });
       return;
     }
     setSelectedFile(null);
