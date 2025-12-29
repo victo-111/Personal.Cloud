@@ -1,9 +1,26 @@
 import nodemailer from 'nodemailer';
+import Redis from 'ioredis';
 
-// Simple in-memory rate limiter (per IP). Note: in serverless or multi-instance
-// deployments this should be backed by a shared store (Redis) for reliability.
+// Rate limit configuration
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const RATE_LIMIT_MAX = 5; // max sends per IP per window
+
+// Redis client (optional). Provide REDIS_URL in env to enable distributed rate limiting.
+const REDIS_URL = process.env.REDIS_URL || process.env.REDIS_TLS_URL || null;
+let redis: Redis | null = null;
+if (REDIS_URL) {
+  try {
+    redis = new Redis(REDIS_URL);
+    redis.on('error', () => {
+      // swallow errors; fall back to in-memory if Redis becomes unavailable
+      redis = null;
+    });
+  } catch (e) {
+    redis = null;
+  }
+}
+
+// Fallback in-memory rate map for single-instance dev
 const rateMap: Map<string, { count: number; firstTs: number }> = new Map();
 
 // POST /api/send-email
@@ -45,9 +62,28 @@ export default async function handler(req: any, res: any) {
   // Sender requested by user (use a verified sender in production)
   const fromAddress = process.env.SENDER_EMAIL || 'no-reply@cloudspace.example';
 
-  // Rate limiting by IP
+  // Rate limiting by IP — prefer Redis when configured
   const xf = req.headers?.['x-forwarded-for'];
   const ip = typeof xf === 'string' ? xf.split(',')[0].trim() : req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown';
+
+  if (redis) {
+    try {
+      const key = `send_email:${ip}`;
+      const cnt = await redis.incr(key);
+      if (cnt === 1) {
+        await redis.pexpire(key, RATE_LIMIT_WINDOW_MS);
+      }
+      if (cnt > RATE_LIMIT_MAX) {
+        res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
+        return;
+      }
+    } catch (e) {
+      // if Redis fails, fall back to in-memory limiter below
+      console.warn('Redis rate limiter error, falling back to memory limiter');
+    }
+  }
+
+  // In-memory fallback limiter (single-instance)
   const entry = rateMap.get(ip) || { count: 0, firstTs: Date.now() };
   const now = Date.now();
   if (now - entry.firstTs > RATE_LIMIT_WINDOW_MS) {
