@@ -56,10 +56,10 @@ const Auth = () => {
         if (error) throw error;
         toast({ title: "Account created!", description: "Welcome to CloudSpace." });
       }
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: isLogin ? "Invalid email or password." : "Error creating account. Please try again.",
         variant: "destructive",
       });
     } finally {
