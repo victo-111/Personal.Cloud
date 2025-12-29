@@ -13,14 +13,29 @@ export const ContactSection = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    setTimeout(() => {
-      setIsSubmitting(false);
-      toast({
-        title: "Message sent!",
-        description: "We'll get back to you as soon as possible!.",
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const name = String(formData.get('name') || 'Anonymous');
+    const email = String(formData.get('email') || '');
+    const message = String(formData.get('message') || '');
+
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, message }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw data;
+        setIsSubmitting(false);
+        const preview = data?.preview ? ` (preview: ${data.preview})` : '';
+        toast({ title: 'Message sent!', description: `We'll get back to you as soon as possible!${preview}` });
+        form.reset();
+      })
+      .catch((err) => {
+        setIsSubmitting(false);
+        toast({ title: 'Send failed', description: String(err?.message || JSON.stringify(err)) });
       });
-    }, 1000);
   };
 
   return (
