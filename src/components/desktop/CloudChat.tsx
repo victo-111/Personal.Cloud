@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Check, CheckCheck, Cloud } from "lucide-react";
+import { Send, Check, CheckCheck, Cloud, User } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { motion } from "framer-motion";
 
 interface Message {
   id: string;
@@ -8,20 +10,32 @@ interface Message {
   message: string;
   created_at: string;
   user_id: string;
+  profiles: {
+    avatar_url: string | null;
+  } | null;
 }
 
 export const CloudChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<{ id: string; email: string } | null>(null);
+  const [typingUsers, setTypingUsers] = useState<Array<{ id: string; username: string }>>([]);
+  const [onlineUsers, setOnlineUsers] = useState<Array<{ user_id: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchUser();
     fetchMessages();
 
-    const channel = supabase
-      .channel("chat-messages")
+    const channel = supabase.channel("chat-messages", {
+      config: {
+        presence: {
+          key: currentUser?.id,
+        },
+      },
+    });
+
+    channel
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "chat_messages" },
@@ -29,12 +43,37 @@ export const CloudChat = () => {
           setMessages((prev) => [...prev, payload.new as Message]);
         }
       )
-      .subscribe();
+      .on("broadcast", { event: "typing" }, (payload) => {
+        if (payload.payload.user.id !== currentUser?.id) {
+          setTypingUsers((current) => {
+            if (!current.some((user) => user.id === payload.payload.user.id)) {
+              return [...current, payload.payload.user];
+            }
+            return current;
+          });
+
+          setTimeout(() => {
+            setTypingUsers((current) =>
+              current.filter((user) => user.id !== payload.payload.user.id)
+            );
+          }, 3000);
+        }
+      })
+      .on("presence", { event: "sync" }, () => {
+        const newState = channel.presenceState();
+        const users = Object.values(newState).map((p: [{ user_id: string }]) => p[0]);
+        setOnlineUsers(users);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ user_id: currentUser?.id });
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,12 +89,12 @@ export const CloudChat = () => {
   const fetchMessages = async () => {
     const { data } = await supabase
       .from("chat_messages")
-      .select("*")
+      .select("*, profiles(avatar_url)")
       .eq("room", "general")
       .order("created_at", { ascending: true })
       .limit(100);
 
-    if (data) setMessages(data);
+    if (data) setMessages(data as Message[]);
   };
 
   const sendMessage = async (e: React.FormEvent) => {
@@ -71,6 +110,17 @@ export const CloudChat = () => {
 
     if (!error) {
       setNewMessage("");
+    }
+  };
+
+  const handleTyping = () => {
+    if (currentUser) {
+      const channel = supabase.channel("chat-messages");
+      channel.send({
+        type: "broadcast",
+        event: "typing",
+        payload: { user: { id: currentUser.id, username: currentUser.email.split("@")[0] } },
+      });
     }
   };
 
@@ -135,7 +185,7 @@ export const CloudChat = () => {
         </div>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-          Online
+          {onlineUsers.length} Online
         </div>
       </div>
 
@@ -169,11 +219,28 @@ export const CloudChat = () => {
                   const isOwn = msg.user_id === currentUser?.id;
                   const showUsername = !isOwn && (msgIndex === 0 || group.messages[msgIndex - 1]?.user_id !== msg.user_id);
                   
+                  const showAvatar = !isOwn && (msgIndex === group.messages.length - 1 || group.messages[msgIndex + 1]?.user_id !== msg.user_id);
+
                   return (
-                    <div
+                    <motion.div
                       key={msg.id}
-                      className={`flex ${isOwn ? "justify-end" : "justify-start"} mb-1`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"} mb-1`}
                     >
+                      {!isOwn && (
+                        <div className="w-8">
+                          {showAvatar && (
+                            <Avatar className="w-8 h-8">
+                              <AvatarImage src={msg.profiles?.avatar_url || undefined} />
+                              <AvatarFallback>
+                                <User className="w-4 h-4 text-muted-foreground" />
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </div>
+                      )}
                       <div
                         className={`relative max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${
                           isOwn
@@ -205,7 +272,7 @@ export const CloudChat = () => {
                           {isOwn && <CheckCheck className="w-3.5 h-3.5" />}
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -213,6 +280,11 @@ export const CloudChat = () => {
           )}
           <div ref={messagesEndRef} />
         </div>
+        {typingUsers.length > 0 && (
+          <div className="absolute bottom-2 left-4 text-xs text-muted-foreground italic">
+            {typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+          </div>
+        )}
       </div>
 
       {/* Input - WhatsApp style */}
@@ -220,7 +292,10 @@ export const CloudChat = () => {
         <div className="flex-1 relative">
           <input
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              handleTyping();
+            }}
             placeholder="Type a message..."
             className="w-full px-4 py-2.5 bg-background border border-border rounded-full text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
           />
