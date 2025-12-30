@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Folder, FileText, Plus, Trash2, Edit2 } from "lucide-react";
@@ -12,20 +12,22 @@ interface UserFile {
   parent_folder: string;
 }
 
+interface NavFolder {
+  id: string;
+  name: string;
+}
+
 export const FileManager = () => {
   const [files, setFiles] = useState<UserFile[]>([]);
-  const [currentFolder, setCurrentFolder] = useState("root");
+  const [navigationStack, setNavigationStack] = useState<NavFolder[]>([{ id: "root", name: "Home" }]);
   const [selectedFile, setSelectedFile] = useState<UserFile | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [createType, setCreateType] = useState<"file" | "folder">("file");
   const { toast } = useToast();
+  const currentFolder = navigationStack[navigationStack.length - 1];
 
-  useEffect(() => {
-    fetchFiles();
-  }, [currentFolder]);
-
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -33,12 +35,16 @@ export const FileManager = () => {
       .from("user_files")
       .select("*")
       .eq("user_id", user.id)
-      .eq("parent_folder", currentFolder)
+      .eq("parent_folder", currentFolder.id)
       .order("file_type", { ascending: false })
       .order("name");
 
     if (data) setFiles(data);
-  };
+  }, [currentFolder.id]);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
 
   const createItem = async () => {
     if (!newName.trim()) return;
@@ -51,11 +57,11 @@ export const FileManager = () => {
       name: newName,
       content: createType === "file" ? "" : null,
       file_type: createType === "folder" ? "folder" : "text",
-      parent_folder: currentFolder,
+      parent_folder: currentFolder.id,
     });
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: "Error creating item. Please try again.", variant: "destructive" });
       return;
     }
 
@@ -68,7 +74,7 @@ export const FileManager = () => {
   const deleteItem = async (id: string) => {
     const { error } = await supabase.from("user_files").delete().eq("id", id);
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: "Error", description: "Error deleting item. Please try again.", variant: "destructive" });
       return;
     }
     setSelectedFile(null);
@@ -78,7 +84,7 @@ export const FileManager = () => {
 
   const openItem = (file: UserFile) => {
     if (file.file_type === "folder") {
-      setCurrentFolder(file.name);
+      setNavigationStack([...navigationStack, { id: file.id, name: file.name }]);
       setSelectedFile(null);
     } else {
       setSelectedFile(file);
@@ -86,8 +92,10 @@ export const FileManager = () => {
   };
 
   const goBack = () => {
-    setCurrentFolder("root");
-    setSelectedFile(null);
+    if (navigationStack.length > 1) {
+      setNavigationStack(navigationStack.slice(0, -1));
+      setSelectedFile(null);
+    }
   };
 
   return (
@@ -96,9 +104,9 @@ export const FileManager = () => {
       <div className="w-48 bg-card/50 border-r border-border p-3">
         <h3 className="font-semibold text-sm text-foreground mb-3">Quick Access</h3>
         <button
-          onClick={() => { setCurrentFolder("root"); setSelectedFile(null); }}
+          onClick={() => { setNavigationStack([{ id: "root", name: "Home" }]); setSelectedFile(null); }}
           className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-primary/10 ${
-            currentFolder === "root" ? "bg-primary/20" : ""
+            currentFolder.id === "root" ? "bg-primary/20" : ""
           }`}
         >
           <Folder className="w-4 h-4 text-primary" />
@@ -110,12 +118,14 @@ export const FileManager = () => {
       <div className="flex-1 flex flex-col">
         {/* Toolbar */}
         <div className="flex items-center gap-2 p-2 bg-card border-b border-border">
-          {currentFolder !== "root" && (
+          {navigationStack.length > 1 && (
             <Button size="sm" variant="ghost" onClick={goBack}>
               ← Back
             </Button>
           )}
-          <span className="text-sm text-muted-foreground">/{currentFolder === "root" ? "" : currentFolder}</span>
+          <span className="text-sm text-muted-foreground">
+            {navigationStack.map(folder => folder.name).join(' / ')}
+          </span>
           <div className="flex-1" />
           <Button size="sm" variant="ghost" onClick={() => { setIsCreating(true); setCreateType("folder"); }}>
             <Folder className="w-4 h-4 mr-1" /> New Folder
@@ -182,7 +192,7 @@ export const FileManager = () => {
               </div>
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>Type: {selectedFile.file_type}</p>
-                <p>Location: /{selectedFile.parent_folder}</p>
+                <p>Location: {navigationStack.map(f => f.name).join(' / ')}</p>
               </div>
               {selectedFile.content && (
                 <div className="mt-4 p-2 bg-black/50 rounded text-xs font-mono text-primary max-h-40 overflow-auto">
