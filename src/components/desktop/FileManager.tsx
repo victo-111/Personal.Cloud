@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, DragEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Folder, FileText, Plus, Trash2, Edit2, Download } from "lucide-react";
@@ -169,6 +169,38 @@ export const FileManager = () => {
     }
   };
 
+  const [folderList, setFolderList] = useState<NavFolder[]>([]);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+
+  const fetchFolders = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('user_files')
+      .select('id, name')
+      .eq('user_id', user.id)
+      .eq('file_type', 'folder')
+      .order('name');
+
+    if (data) setFolderList(data as NavFolder[]);
+  }, []);
+
+  useEffect(() => {
+    fetchFolders();
+  }, [fetchFolders]);
+
+  const moveItemToFolder = async (fileId: string, targetFolderId: string) => {
+    const { error } = await supabase.from('user_files').update({ parent_folder: targetFolderId }).eq('id', fileId);
+    if (error) {
+      toast({ title: 'Error', description: 'Move failed', variant: 'destructive' });
+      return;
+    }
+    fetchFiles();
+    fetchFolders();
+    toast({ title: 'Moved', description: 'Item moved' });
+  };
+
   return (
     <div className="h-full flex bg-background">
       {/* Sidebar */}
@@ -183,6 +215,55 @@ export const FileManager = () => {
           <Folder className="w-4 h-4 text-primary" />
           Home
         </button>
+
+        <div className="mt-4">
+          <h4 className="text-xs font-medium text-muted-foreground mb-2">Folders</h4>
+          <div className="flex flex-col gap-1">
+            {folderList.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => { setNavigationStack([...navigationStack, { id: f.id, name: f.name }]); setSelectedFile(null); }}
+                onDragOgit commitgitver={(e: DragEvent<HTMLButtonElement>) => { e.preventDefault(); setDragOverFolderId(f.id); }}
+                onDragLeave={() => setDragOverFolderId(null)}
+                onDrop={async (e: DragEvent<HTMLButtonElement>) => {
+                  e.preventDefault();
+                  setDragOverFolderId(null);
+                  const movedId = e.dataTransfer.getData('application/x-file-id');
+                  if (movedId) {
+                    await moveItemToFolder(movedId, f.id);
+                    return;
+                  }
+                  // handle file uploads dropped from OS
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    const text = await file.text();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
+                    const { error } = await supabase.from('user_files').insert({
+                      user_id: user.id,
+                      name: file.name,
+                      content: text,
+                      file_type: 'text',
+                      parent_folder: f.id,
+                    });
+                    if (error) {
+                      toast({ title: 'Error', description: 'Upload failed', variant: 'destructive' });
+                      return;
+                    }
+                    fetchFiles();
+                    fetchFolders();
+                    toast({ title: 'Uploaded', description: file.name });
+                  }
+                }}
+                className={`w-full text-left px-2 py-1 rounded text-sm ${dragOverFolderId === f.id ? 'bg-primary/25' : 'hover:bg-primary/5'}`}>
+                {f.name}
+              </button>
+            ))}
+            {folderList.length === 0 && (
+              <div className="text-xs text-muted-foreground">No folders</div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Main content */}
@@ -230,6 +311,8 @@ export const FileManager = () => {
               {files.map((file) => (
                 <div
                   key={file.id}
+                  draggable
+                  onDragStart={(ev: DragEvent<HTMLDivElement>) => { ev.dataTransfer.setData('application/x-file-id', file.id); }}
                   onDoubleClick={() => openItem(file)}
                   onClick={() => setSelectedFile(file)}
                   className={`flex flex-col items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors ${
@@ -254,21 +337,45 @@ export const FileManager = () => {
 
           {/* File preview */}
           {selectedFile && selectedFile.file_type !== "folder" && (
-            <div className="w-64 bg-card/50 border-l border-border p-4">
+            <div className="w-80 bg-card/50 border-l border-border p-4 flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-sm truncate">{selectedFile.name}</h3>
-                <Button size="sm" variant="ghost" onClick={() => deleteItem(selectedFile.id)}>
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => downloadItem(selectedFile)}>
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => renameItem(selectedFile.id)}>
+                    Rename
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => deleteItem(selectedFile.id)}>
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>Type: {selectedFile.file_type}</p>
                 <p>Location: {navigationStack.map(f => f.name).join(' / ')}</p>
               </div>
-              {selectedFile.content && (
-                <div className="mt-4 p-2 bg-black/50 rounded text-xs font-mono text-primary max-h-40 overflow-auto">
-                  {selectedFile.content.substring(0, 200)}
-                  {selectedFile.content.length > 200 && "..."}
+              {!editingContent ? (
+                <>
+                  {selectedFile.content ? (
+                    <div className="mt-4 p-2 bg-black/50 rounded text-xs font-mono text-primary max-h-56 overflow-auto">
+                      {selectedFile.content}
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-sm text-muted-foreground">No content</div>
+                  )}
+                  <div className="mt-3">
+                    <Button size="sm" onClick={startEditing}><Edit2 className="w-4 h-4 mr-1" /> Edit</Button>
+                  </div>
+                </>
+              ) : (
+                <div className="mt-4 flex flex-col gap-2">
+                  <textarea value={editedContent} onChange={(e) => setEditedContent(e.target.value)} className="w-full h-56 p-2 bg-background border border-border rounded font-mono text-sm" />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={saveContent}>Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingContent(false)}>Cancel</Button>
+                  </div>
                 </div>
               )}
             </div>
