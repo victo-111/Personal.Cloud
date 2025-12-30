@@ -205,4 +205,50 @@ app.get('/api/cloud-ai-stream', async (req, res) => {
   }
 });
 
+// Contact form endpoint - sends email via SendGrid (requires SENDGRID_API_KEY)
+app.post('/api/contact', async (req, res) => {
+  const { name, email, message } = req.body || {};
+  if (!name || !email || !message) return res.status(400).json({ error: 'Missing name, email or message' });
+
+  const recipient = process.env.CONTACT_RECIPIENT || 'bobclein1@gmail.com';
+  const sendGridKey = process.env.SENDGRID_API_KEY;
+
+  try {
+    const plain = `Contact form message from ${name} <${email}>:\n\n${message}`;
+    const html = `<p><strong>From:</strong> ${name} &lt;${email}&gt;</p><p><strong>Message:</strong></p><p>${message.replace(/\n/g, '<br/>')}</p>`;
+
+    if (sendGridKey) {
+      const payload = {
+        personalizations: [{ to: [{ email: recipient }] }],
+        from: { email: process.env.SENDGRID_FROM || 'no-reply@personalcloud.local', name: 'PersonalCloud Contact' },
+        subject: `New contact message from ${name}`,
+        content: [
+          { type: 'text/plain', value: plain },
+          { type: 'text/html', value: html },
+        ],
+      };
+
+      const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sendGridKey}` },
+        body: JSON.stringify(payload),
+      });
+
+      if (r.status >= 200 && r.status < 300) {
+        return res.json({ ok: true });
+      }
+
+      const txt = await r.text();
+      console.error('SendGrid send failed', r.status, txt);
+      return res.status(502).json({ error: 'Failed to send email', details: txt });
+    }
+
+    // No SendGrid key set
+    return res.status(500).json({ error: 'No mailer configured. Set SENDGRID_API_KEY to enable sending emails.' });
+  } catch (err) {
+    console.error('Contact send error', err);
+    return res.status(500).json({ error: 'Internal error', details: err.message });
+  }
+});
+
 app.listen(port, () => console.log(`Dev proxy listening on ${port}`));

@@ -7,12 +7,15 @@ import {
   Volume2, X, Minus, Square, Search, Code, Cloud, LogOut, User
 } from "lucide-react";
 import { CodeEditor } from "@/components/desktop/CodeEditor";
+import { motion } from "framer-motion";
 import { FileManager } from "@/components/desktop/FileManager";
 import { MusicPlayer } from "@/components/desktop/MusicPlayer";
 import { CloudChat } from "@/components/desktop/CloudChat";
 import { PhotoGallery } from "@/components/desktop/PhotoGallery";
 import { InteractiveTerminal } from "@/components/desktop/InteractiveTerminal";
 import { SettingsPanel } from "@/components/desktop/SettingsPanel";
+import CloudAiModal from "@/components/desktop/CloudAiModal";
+import { AnonAiModal } from "@/components/desktop/AnonAiModal";
 import { Calculator as CalculatorApp } from "@/components/desktop/Calculator";
 import { NotesApp } from "@/components/desktop/NotesApp";
 import { ProfileModal } from "@/components/desktop/ProfileModal";
@@ -136,6 +139,9 @@ const Desktop = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [wallpaper, setWallpaper] = useState(wallpaperThemes[0]);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [globalCloudAiOpen, setGlobalCloudAiOpen] = useState(false);
+  const [globalAnonAiOpen, setGlobalAnonAiOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   // Dragging state for windows
   const [draggingWindow, setDraggingWindow] = useState<string | null>(null);
@@ -173,6 +179,31 @@ const Desktop = () => {
         .maybeSingle();
       if (data?.avatar_url) {
         setAvatarUrl(data.avatar_url);
+      }
+      // fetch is_admin in a separate call to reduce type issues
+      try {
+        const resAny = await (supabase as any)
+          .from("profiles")
+          .select("is_admin")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        const ai = resAny?.data?.is_admin;
+        if (typeof ai === 'boolean') {
+          setIsAdmin(!!ai);
+          return;
+        }
+      } catch (e) {
+        // ignore - table may not have is_admin column
+      }
+      // fallback to localStorage
+      try {
+        const stored = localStorage.getItem(`pc:user:${user.id}`);
+        if (stored) {
+          const p = JSON.parse(stored);
+          setIsAdmin(!!p.isAdmin);
+        }
+      } catch (e) {
+        // ignore
       }
     };
     fetchAvatar();
@@ -418,6 +449,40 @@ const Desktop = () => {
                   boxShadow: `${style.shadow}, ${style.innerGlow}`
                 }}
               >
+
+      {/* Global Cloud AI button (always available) */}
+      <motion.button
+        onClick={() => setGlobalCloudAiOpen(true)}
+        initial={{ y: 0 }}
+        animate={{ y: [0, -8, 0] }}
+        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute right-6 bottom-20 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-xl border border-border text-white neon-flash"
+        aria-label="Open Cloud AI"
+        title="Open Cloud AI"
+      >
+        <Cloud className="w-6 h-6 text-primary-foreground" />
+      </motion.button>
+
+      {/* Anon AI button (admin only) */}
+      {isAdmin && (
+        <motion.button
+          onClick={() => setGlobalAnonAiOpen(true)}
+          initial={{ y: 0 }}
+          animate={{ y: [0, -6, 0] }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute right-6 bottom-36 z-50 w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-xl border border-border text-white neon-flash"
+          aria-label="Open Anon AI"
+          title="Open Anon AI"
+        >
+          <span className="font-semibold">A</span>
+        </motion.button>
+      )}
+
+      {/* Global modals */}
+      <CloudAiModal isOpen={globalCloudAiOpen} onClose={() => setGlobalCloudAiOpen(false)} sophistication="very-high" />
+      <AnonAiModal isOpen={globalAnonAiOpen} onClose={() => setGlobalAnonAiOpen(false)} sophistication="very-high" />
+
+
                 {/* Top highlight */}
                 <div 
                   className="absolute inset-x-0 top-0 h-1/2 pointer-events-none"

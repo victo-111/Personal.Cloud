@@ -136,16 +136,35 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    const data = await r.json();
+    const data: unknown = await r.json();
+
+    // Type guards to safely inspect the unknown JSON returned by the upstream LLM
+    const isObject = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null;
+    const isString = (v: unknown): v is string => typeof v === 'string';
+
     let text = '';
-    if (data.choices && Array.isArray(data.choices) && data.choices[0]) {
-      const c = data.choices[0];
-      if (c.message && c.message.content) text = c.message.content;
-      else if (c.text) text = c.text;
-    } else if (data.output || data.response) {
-      text = data.output || data.response;
+    if (isObject(data)) {
+      const choices = data.choices;
+      if (Array.isArray(choices) && choices[0]) {
+        const c = choices[0] as Record<string, any>;
+        if (isObject(c.message) && isString(c.message.content)) {
+          text = c.message.content;
+        } else if (isString(c.text)) {
+          text = c.text;
+        } else if (isObject(c.delta) && isString(c.delta.content)) {
+          text = c.delta.content;
+        }
+      } else if (isString(data.output) || isString(data.response)) {
+        text = (data.output as string) || (data.response as string);
+      } else {
+        try {
+          text = JSON.stringify(data);
+        } catch {
+          text = String(data);
+        }
+      }
     } else {
-      text = JSON.stringify(data);
+      text = String(data);
     }
 
     res.status(200).json({ text });

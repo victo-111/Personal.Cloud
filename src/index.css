@@ -52,6 +52,9 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Global neon brightness scale (1 = default) - controlled from Settings */
+    --neon-brightness: 1;
   }
 
   .dark {
@@ -179,13 +182,13 @@ All colors MUST be HSL.
 @keyframes neon-pulse {
   0%, 100% {
     opacity: 0.4;
-    filter: brightness(1.5) saturate(1.5);
+    filter: brightness(calc(1.5 * var(--neon-brightness, 1))) saturate(calc(1.5 * var(--neon-brightness, 1)));
   }
   50% {
     opacity: 0.8;
-    filter: brightness(2.5) saturate(2);
+    filter: brightness(calc(2.5 * var(--neon-brightness, 1))) saturate(calc(2 * var(--neon-brightness, 1)));
   }
-}
+} 
 
 @keyframes neon-flicker {
   0%, 100% {
@@ -213,18 +216,18 @@ All colors MUST be HSL.
 
 @keyframes color-shift {
   0%, 100% {
-    filter: hue-rotate(0deg) brightness(1.5);
+    filter: hue-rotate(0deg) brightness(calc(1.5 * var(--neon-brightness, 1)));
   }
   25% {
-    filter: hue-rotate(90deg) brightness(2);
+    filter: hue-rotate(90deg) brightness(calc(2 * var(--neon-brightness, 1)));
   }
   50% {
-    filter: hue-rotate(180deg) brightness(1.8);
+    filter: hue-rotate(180deg) brightness(calc(1.8 * var(--neon-brightness, 1)));
   }
   75% {
-    filter: hue-rotate(270deg) brightness(2.2);
+    filter: hue-rotate(270deg) brightness(calc(2.2 * var(--neon-brightness, 1)));
   }
-}
+} 
 
 @keyframes glitch-scan {
   0%, 100% {

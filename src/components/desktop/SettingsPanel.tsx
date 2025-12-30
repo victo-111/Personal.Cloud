@@ -25,6 +25,22 @@ export const SettingsPanel = ({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Neon brightness (persisted to localStorage)
+  const [neonBrightness, setNeonBrightness] = useState<number>(() => {
+    const stored = localStorage.getItem('pc:neon-brightness');
+    return stored ? parseFloat(stored) : 1;
+  });
+
+  useEffect(() => {
+    // apply to root CSS variable and persist
+    document.documentElement.style.setProperty('--neon-brightness', neonBrightness.toString());
+    try {
+      localStorage.setItem('pc:neon-brightness', neonBrightness.toString());
+    } catch (e) {
+      console.warn('Failed to persist neon brightness', e);
+    }
+  }, [neonBrightness]);
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -236,6 +252,34 @@ export const SettingsPanel = ({
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        <div className="border-t border-border pt-6">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
+            Neon
+          </h3>
+          <div className="bg-card rounded-lg p-4 space-y-3">
+            <p className="text-xs text-muted-foreground mb-2">Adjust neon color brightness</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={0.5}
+                max={2.5}
+                step={0.1}
+                value={neonBrightness}
+                onChange={(e) => setNeonBrightness(parseFloat(e.target.value))}
+                className="w-full"
+              />
+              <div className="w-12 text-right text-sm font-medium">{neonBrightness.toFixed(1)}x</div>
+              <button
+                onClick={() => setNeonBrightness(1)}
+                className="ml-2 px-2 py-1 bg-card/80 rounded text-xs text-muted-foreground hover:bg-card"
+                title="Reset neon brightness"
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
 

@@ -8,19 +8,40 @@ import { useToast } from "@/hooks/use-toast";
 
 export const ContactSection = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim() || !email.trim() || !message.trim()) {
+      return toast({ title: 'Missing fields', description: 'Please fill in all fields.' });
+    }
     setIsSubmitting(true);
-    
-    setTimeout(() => {
-      setIsSubmitting(false);
-      toast({
-        title: "Message sent!",
-        description: "We'll get back to you as soon as possible!.",
+
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), message: message.trim() }),
       });
-    }, 1000);
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || 'Failed to send message');
+      }
+
+      setName('');
+      setEmail('');
+      setMessage('');
+      toast({ title: 'Message sent!', description: "We'll get back to you as soon as possible!." });
+    } catch (err: any) {
+      console.error('Contact send failed', err);
+      toast({ title: 'Send failed', description: err?.message || 'Could not send message' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -51,6 +72,8 @@ export const ContactSection = () => {
                 <label className="text-sm font-medium text-foreground">Name</label>
                 <Input 
                   placeholder="Your name" 
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="bg-background/50 border-primary/30 focus:border-primary"
                 />
               </div>
@@ -59,6 +82,8 @@ export const ContactSection = () => {
                 <Input 
                   type="email" 
                   placeholder="your@email.com" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="bg-background/50 border-primary/30 focus:border-primary"
                 />
               </div>
@@ -67,6 +92,8 @@ export const ContactSection = () => {
                 <Textarea 
                   placeholder="Your message..." 
                   rows={7}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
                   className="bg-background/50 border-primary/30 focus:border-primary resize-none"
                 />
               </div>

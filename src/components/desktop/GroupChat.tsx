@@ -201,17 +201,24 @@ export const CloudChat = () => {
   const handleAdminLogin = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     // Client-side admin check (insecure, for demo only)
-    if (!currentUser) {
-      toast.error("You must be logged in to assign admin");
-      return;
-    }
     if (adminUserInput === "Anon111" && adminPassInput === "123VIC##") {
-      const next = { ...currentUser, isAdmin: true };
-      setCurrentUser(next);
-      try {
-        localStorage.setItem(`pc:user:${currentUser.id}`, JSON.stringify({ points: next.points, isAdmin: true }));
-      } catch (e) {
-        console.warn("Failed to persist admin flag", e);
+      if (currentUser) {
+        const next = { ...currentUser, isAdmin: true };
+        setCurrentUser(next);
+        try {
+          localStorage.setItem(`pc:user:${currentUser.id}`, JSON.stringify({ points: next.points, isAdmin: true }));
+        } catch (err) {
+          console.warn("Failed to persist admin flag", err);
+        }
+      } else {
+        // create a guest admin session (demo only)
+        const guest = { id: "guest-admin", email: "admin@local", points: 0, isAdmin: true } as any;
+        setCurrentUser(guest);
+        try {
+          localStorage.setItem(`pc:guest-admin`, JSON.stringify(guest));
+        } catch (err) {
+          console.warn("Failed to persist guest admin", err);
+        }
       }
       setAdminLoginOpen(false);
       toast.success("Admin login successful");
@@ -289,8 +296,8 @@ export const CloudChat = () => {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setProfileOpen(true)} className="text-xs px-2 py-1 rounded bg-card/80 border border-border text-muted-foreground">Profile</button>
-            {/* header Cloud AI button removed to keep UI minimal */}
-            {currentUser && !currentUser.isAdmin && (
+            <button onClick={() => setCloudAiOpen(true)} className="text-xs px-2 py-1 rounded bg-card/80 border border-border text-muted-foreground">Cloud AI</button>
+            {(!currentUser || !currentUser.isAdmin) && (
               <button onClick={() => setAdminLoginOpen(true)} className="text-xs px-2 py-1 rounded bg-card/80 border border-border text-muted-foreground">Admin Login</button>
             )}
             {currentUser && currentUser.isAdmin && (
