@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Folder, FileText, Plus, Trash2, Edit2 } from "lucide-react";
@@ -156,9 +156,9 @@ export const FileManager = () => {
                   }`}
                 >
                   {file.file_type === "folder" ? (
-                    <Folder className="w-12 h-12 text-primary" />
+                    <Folder style={{ width: 'calc(var(--desktop-icon-size) * 0.9)', height: 'calc(var(--desktop-icon-size) * 0.9)' }} className="text-primary" />
                   ) : (
-                    <FileText className="w-12 h-12 text-accent" />
+                    <FileText style={{ width: 'calc(var(--desktop-icon-size) * 0.9)', height: 'calc(var(--desktop-icon-size) * 0.9)' }} className="text-accent" />
                   )}
                   <span className="text-sm text-center truncate w-full">{file.name}</span>
                 </div>

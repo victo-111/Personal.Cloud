@@ -31,6 +31,12 @@ export const SettingsPanel = ({
     return stored ? parseFloat(stored) : 1;
   });
 
+  // Desktop icon size (persisted to localStorage)
+  const [iconSize, setIconSize] = useState<number>(() => {
+    const stored = localStorage.getItem('pc:icon-size');
+    return stored ? parseInt(stored, 10) : 40; // default smaller size
+  });
+
   useEffect(() => {
     // apply to root CSS variable and persist
     document.documentElement.style.setProperty('--neon-brightness', neonBrightness.toString());
@@ -39,7 +45,15 @@ export const SettingsPanel = ({
     } catch (e) {
       console.warn('Failed to persist neon brightness', e);
     }
-  }, [neonBrightness]);
+
+    // icon size CSS var
+    document.documentElement.style.setProperty('--desktop-icon-size', `${iconSize}px`);
+    try {
+      localStorage.setItem('pc:icon-size', String(iconSize));
+    } catch (e) {
+      console.warn('Failed to persist icon size', e);
+    }
+  }, [neonBrightness, iconSize]);
 
   useEffect(() => {
     fetchProfile();
@@ -276,6 +290,34 @@ export const SettingsPanel = ({
                 onClick={() => setNeonBrightness(1)}
                 className="ml-2 px-2 py-1 bg-card/80 rounded text-xs text-muted-foreground hover:bg-card"
                 title="Reset neon brightness"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-border pt-6">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
+            Desktop
+          </h3>
+          <div className="bg-card rounded-lg p-4 space-y-3">
+            <p className="text-xs text-muted-foreground mb-2">Adjust desktop icon size</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={28}
+                max={64}
+                step={2}
+                value={iconSize}
+                onChange={(e) => setIconSize(parseInt(e.target.value, 10))}
+                className="w-full"
+              />
+              <div className="w-16 text-right text-sm font-medium">{iconSize}px</div>
+              <button
+                onClick={() => setIconSize(40)}
+                className="ml-2 px-2 py-1 bg-card/80 rounded text-xs text-muted-foreground hover:bg-card"
+                title="Reset icon size"
               >
                 Reset
               </button>

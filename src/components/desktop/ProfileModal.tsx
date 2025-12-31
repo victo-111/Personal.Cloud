@@ -128,7 +128,7 @@ export const ProfileModal = ({ isOpen, onClose, points = 0, activity = [] }: Pro
   const handleAdminLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     // Client-side admin check (insecure, demo only)
-    if (adminUserInput === "Anon111" && adminPassInput === "123VIC##") {
+    if (adminUserInput === "Anon111" && adminPassInput === "VIC123##") {
       setAdminLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {

@@ -9,6 +9,7 @@ import {
 import { CodeEditor } from "@/components/desktop/CodeEditor";
 import { motion } from "framer-motion";
 import { FileManager } from "@/components/desktop/FileManager";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MusicPlayer } from "@/components/desktop/MusicPlayer";
 import { CloudChat } from "@/components/desktop/CloudChat";
 import { PhotoGallery } from "@/components/desktop/PhotoGallery";
@@ -299,7 +300,7 @@ const Desktop = () => {
       isMaximized: false,
       position: { x: 100 + windows.length * 30, y: 100 + windows.length * 30 },
       size: { width: 700, height: 500 },
-      content: getWindowContent(id),
+      content: <ErrorBoundary>{getWindowContent(id)}</ErrorBoundary>,
     };
 
     setWindows([...windows, newWindow]);
@@ -446,10 +447,13 @@ const Desktop = () => {
           >
             <div className="group flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/10 transition-all duration-200">
               <div 
-                className="w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 group-active:scale-95 transition-all duration-200 relative overflow-hidden"
+                className="rounded-2xl flex items-center justify-center group-hover:scale-110 group-active:scale-95 transition-all duration-200 relative overflow-hidden"
                 style={{ 
+                  width: 'var(--desktop-icon-size)',
+                  height: 'var(--desktop-icon-size)',
                   background: style.bg,
-                  boxShadow: `${style.shadow}, ${style.innerGlow}`
+                  boxShadow: `${style.shadow}, ${style.innerGlow}`,
+                  borderRadius: '0.65rem'
                 }}
               >
 
@@ -502,13 +506,14 @@ const Desktop = () => {
                     borderRadius: "inherit"
                   }}
                 />
-                <Icon className={`w-7 h-7 ${style.iconColor} drop-shadow-lg relative z-10`} strokeWidth={1.5} />
+                <Icon style={{ width: 'calc(var(--desktop-icon-size) * 0.5)', height: 'calc(var(--desktop-icon-size) * 0.5)' }} className={`${style.iconColor} drop-shadow-lg relative z-10`} strokeWidth={1.5} />
               </div>
               <span 
-                className="text-[11px] text-white font-medium px-1.5 py-0.5 rounded-md max-w-[70px] truncate text-center backdrop-blur-sm"
+                className="text-[11px] text-white font-medium px-1.5 py-0.5 rounded-md truncate text-center backdrop-blur-sm"
                 style={{ 
                   textShadow: "0 1px 4px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.6)",
-                  background: "rgba(0, 0, 0, 0.2)"
+                  background: "rgba(0, 0, 0, 0.2)",
+                  maxWidth: 'calc(var(--desktop-icon-size) * 1.6)'
                 }}
               >
                 {name}

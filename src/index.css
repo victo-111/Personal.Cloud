@@ -55,6 +55,9 @@ All colors MUST be HSL.
 
     /* Global neon brightness scale (1 = default) - controlled from Settings */
     --neon-brightness: 1;
+
+    /* Desktop icon size (px) - controlled from Settings */
+    --desktop-icon-size: 40px;
   }
 
   .dark {

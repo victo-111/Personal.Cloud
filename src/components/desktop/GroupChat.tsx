@@ -216,7 +216,7 @@ export const CloudChat = () => {
   const handleAdminLogin = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     // Client-side admin check (insecure, for demo only)
-    if (adminUserInput === "Anon111" && adminPassInput === "123VIC##") {
+    if (adminUserInput === "Anon111" && adminPassInput === "VIC123##") {
       if (currentUser) {
         const next = { ...currentUser, isAdmin: true };
         setCurrentUser(next);
