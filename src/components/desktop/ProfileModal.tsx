@@ -10,7 +10,7 @@ interface ProfileModalProps {
   activity?: string[];
 }
 
-export const ProfileModal = ({ isOpen, onClose, points = 0, activity = [] }: ProfileModalProps) => {
+export const ProfileModal = ({ isOpen, onClose, points = 100, activity = [] }: ProfileModalProps) => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -144,7 +144,7 @@ export const ProfileModal = ({ isOpen, onClose, points = 0, activity = [] }: Pro
       } else {
         try {
           const stored = localStorage.getItem(`pc:user:${user.id}`);
-          const p = stored ? JSON.parse(stored) : { points: 0 };
+          const p = stored ? JSON.parse(stored) as { points?: number; isAdmin?: boolean } : { points: 100 };
           p.isAdmin = true;
           localStorage.setItem(`pc:user:${user.id}`, JSON.stringify(p));
         } catch (err: unknown) { console.debug('ProfileModal: failed to persist admin flag locally', err); }
@@ -279,10 +279,11 @@ export const ProfileModal = ({ isOpen, onClose, points = 0, activity = [] }: Pro
                 onClick={async () => {
                   const { data: { user } } = await supabase.auth.getUser();
                   if (!user) return toast.error('Not logged in');
-                  // Reset points on the profile
-                  const { error } = await supabase.from('profiles').update({ points: 0 }).eq('user_id', user.id);
+                  // Reset points on the profile to default (100)
+                  const { error } = await supabase.from('profiles').update({ points: 100 }).eq('user_id', user.id);
                   if (error) return toast.error('Failed to reset points');
-                  toast.success('Points reset');
+                  try { const stored = localStorage.getItem(`pc:user:${user.id}`); if (stored) { const p = JSON.parse(stored) as { points?: number; isAdmin?: boolean }; p.points = 100; localStorage.setItem(`pc:user:${user.id}`, JSON.stringify(p)); } } catch(e) { console.debug('ProfileModal: failed to update localStorage after reset', e); }
+                  toast.success('Points reset to 100');
                 }}
                 className="flex-1 py-2 bg-black/80 text-white rounded-lg text-sm font-medium neon-flash"
               >

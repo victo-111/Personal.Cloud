@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Check, CheckCheck, Cloud, User } from "lucide-react";
+import { Send, Check, CheckCheck, Cloud, User, Bell, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { ProfileModal } from "@/components/desktop/ProfileModal";
 import { ActivityHistory } from "@/components/desktop/ActivityHistory";
 import { AnonAiModal } from "@/components/desktop/AnonAiModal";
 import CloudAiModal from "@/components/desktop/CloudAiModal";
+import { MentionAutocomplete } from "@/components/desktop/MentionAutocomplete";
+import { extractMentions, detectMentionAtCursor, renderMentionedText } from "@/lib/mention-utils";
 
 interface Message {
   id: string;
@@ -18,6 +20,7 @@ interface Message {
   profiles: {
     avatar_url: string | null;
   } | null;
+  mentioned_users?: string[];
 }
 
 export const CloudChat = () => {
@@ -30,9 +33,12 @@ export const CloudChat = () => {
   const [adminUserInput, setAdminUserInput] = useState("");
   const [adminPassInput, setAdminPassInput] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
-  const [anonAiOpen, setAnonAiOpen] = useState(false);
-  const [cloudAiOpen, setCloudAiOpen] = useState(false);
+  const [mentionActive, setMentionActive] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
+  const [notifications, setNotifications] = useState<Array<{ id: string; username: string; message: string; created_at: string }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   interface ProfileRow { points?: number; is_admin?: boolean }
 
@@ -51,7 +57,7 @@ export const CloudChat = () => {
       setCurrentUser({
         id: user.id,
         email: user.email || "Anonymous",
-        points: (profileSafe && typeof profileSafe.points === "number") ? profileSafe.points : (parsed?.points || 0),
+        points: (profileSafe && typeof profileSafe.points === "number") ? profileSafe.points : (parsed?.points ?? 100),
         isAdmin: (profileSafe && !!profileSafe.is_admin) || parsed?.isAdmin || false,
       });
     }
@@ -66,7 +72,7 @@ export const CloudChat = () => {
       .limit(100);
 
     if (Array.isArray(data)) {
-      const mapped: Message[] = data.map((d) => {
+      const mapped: Message[] = data.map((d: any) => {
         const profilesObj = d?.profiles && typeof d.profiles === 'object' ? d.profiles as { avatar_url?: string | null } : null;
         return {
           id: d.id,
@@ -75,6 +81,7 @@ export const CloudChat = () => {
           created_at: d.created_at,
           user_id: d.user_id,
           profiles: profilesObj && typeof profilesObj.avatar_url === 'string' ? { avatar_url: profilesObj.avatar_url } : null,
+          mentioned_users: (d.mentioned_users as string[]) || [],
         };
       });
 
@@ -99,7 +106,7 @@ export const CloudChat = () => {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "chat_messages" },
         (payload) => {
-          const n = payload.new;
+          const n = payload.new as any;
           const profileObj = n?.profiles && typeof n.profiles === 'object' ? n.profiles as { avatar_url?: string | null } : null;
           const safeMsg: Message = {
             id: n.id,
@@ -108,6 +115,7 @@ export const CloudChat = () => {
             created_at: n.created_at,
             user_id: n.user_id,
             profiles: profileObj && typeof profileObj.avatar_url === 'string' ? { avatar_url: profileObj.avatar_url } : null,
+            mentioned_users: (n.mentioned_users as string[]) || [],
           };
           setMessages((prev) => [...prev, safeMsg]);
         }
@@ -160,19 +168,90 @@ export const CloudChat = () => {
     };
   }, [currentUser, fetchUser, fetchMessages]);
 
+  // Listen for mention notifications
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const notificationsChannel = (supabase as any)
+      .channel(`mentions-${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "mention_notifications",
+          filter: `user_id=eq.${currentUser.id}`,
+        },
+        (payload: any) => {
+          const n = payload.new;
+          setNotifications((prev) => [
+            ...prev,
+            {
+              id: n.id,
+              username: n.mentioned_username,
+              message: n.message_id,
+              created_at: n.created_at,
+            },
+          ]);
+          toast.info(`@${n.mentioned_username} mentioned you!`);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(notificationsChannel);
+    };
+  }, [currentUser]);
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentUser) return;
 
-    const { error } = await supabase.from("chat_messages").insert({
+    // Extract mentions from the message
+    const mentions = extractMentions(newMessage.trim());
+    
+    // Get mentioned user IDs
+    let mentionedUserIds: string[] = [];
+    if (mentions.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, username")
+        .in("username", mentions);
+
+      if (profiles) {
+        mentionedUserIds = profiles.map((p) => p.user_id);
+      }
+    }
+
+    const { data: insertedMessage, error } = await supabase.from("chat_messages").insert({
       user_id: currentUser.id,
       username: currentUser.email.split("@")[0],
       message: newMessage.trim(),
       room: "general",
-    });
+      mentioned_users: mentionedUserIds.length > 0 ? mentionedUserIds : null,
+    }).select("id").single();
 
-    if (!error) {
+    if (!error && insertedMessage) {
       setNewMessage("");
+      
+      // Create mention notifications for each mentioned user
+      if (mentionedUserIds.length > 0) {
+        const notifications = mentionedUserIds.map((userId) => ({
+          user_id: userId,
+          mentioned_by_id: currentUser.id,
+          message_id: insertedMessage.id,
+          mentioned_username: currentUser.email.split("@")[0],
+        }));
+
+        // Use type casting since the table might not be in the generated types yet
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any).from("mention_notifications").insert(notifications);
+        } catch (e) {
+          console.warn('Failed to create mention notifications', e);
+        }
+      }
+
       // award a point for sending a message and persist
       setCurrentUser((cu) => {
         if (!cu) return cu;
@@ -186,8 +265,6 @@ export const CloudChat = () => {
       });
       // record activity server-side (best-effort)
       try {
-        // Best-effort activity logging: the typed Supabase client may not include this table.
-        // Use a runtime cast to avoid TypeScript errors when 'user_activity' is not present in the generated types.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase as any).from('user_activity').insert({
           user_id: currentUser.id,
@@ -211,6 +288,61 @@ export const CloudChat = () => {
         payload: { user: { id: currentUser.id, username: currentUser.email.split("@")[0] } },
       });
     }
+  };
+
+  const handleMessageInputChange = (text: string) => {
+    setNewMessage(text);
+    handleTyping();
+
+    // Detect mention autocomplete
+    if (!inputRef.current) return;
+
+    const cursorPos = inputRef.current.selectionStart || 0;
+    const { isActive, query, startIndex } = detectMentionAtCursor(text, cursorPos);
+
+    if (isActive) {
+      setMentionActive(true);
+      setMentionQuery(query);
+
+      // Calculate position for autocomplete dropdown
+      const input = inputRef.current;
+      const rect = input.getBoundingClientRect();
+      const textBeforeMention = text.substring(0, startIndex);
+      const estimatedLeft = rect.left + (textBeforeMention.length * 8);
+
+      setMentionPosition({
+        top: rect.bottom + 5,
+        left: Math.max(0, estimatedLeft),
+      });
+    } else {
+      setMentionActive(false);
+      setMentionQuery("");
+    }
+  };
+
+  const handleSelectMention = (username: string) => {
+    const cursorPos = inputRef.current?.selectionStart || 0;
+    const { startIndex } = detectMentionAtCursor(newMessage, cursorPos);
+
+    if (startIndex === -1) return;
+
+    // Replace @query with @username
+    const beforeMention = newMessage.substring(0, startIndex);
+    const afterMention = newMessage.substring(cursorPos);
+    const newText = `${beforeMention}@${username} ${afterMention}`;
+
+    setNewMessage(newText);
+    setMentionActive(false);
+    setMentionQuery("");
+
+    // Focus back to input
+    setTimeout(() => {
+      if (inputRef.current) {
+        const newCursorPos = startIndex + username.length + 2;
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
   };
 
   const handleAdminLogin = (e?: React.FormEvent) => {
@@ -304,190 +436,264 @@ export const CloudChat = () => {
             <p className="text-xs text-muted-foreground/80">Points: <span className="font-medium">{currentUser.points}</span></p>
           )}
         </div>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
             <span className="text-xs text-muted-foreground">{onlineUsers.length} Online</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setProfileOpen(true)} className="text-xs px-2 py-1 rounded bg-card/80 border border-border text-muted-foreground">Profile</button>
-            <button onClick={() => setCloudAiOpen(true)} className="text-xs px-2 py-1 rounded bg-card/80 border border-border text-muted-foreground">Cloud AI</button>
             {(!currentUser || !currentUser.isAdmin) && (
               <button onClick={() => setAdminLoginOpen(true)} className="text-xs px-2 py-1 rounded bg-card/80 border border-border text-muted-foreground">Admin Login</button>
             )}
             {currentUser && currentUser.isAdmin && (
-                <>
-                  <span className="px-2 py-1 rounded text-[12px] font-semibold bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.45)]">ADMIN</span>
-                  <button onClick={() => setAnonAiOpen(true)} className="text-xs px-2 py-1 ml-2 rounded bg-card/80 border border-border text-muted-foreground">Anon AI</button>
-                </>
+              <span className="px-2 py-1 rounded text-[12px] font-semibold bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.45)]">ADMIN</span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Chat Pattern Background */}
-      <div 
-        className="flex-1 overflow-auto relative"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}
-      >
-        <div className="p-4 space-y-2">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center py-20">
-              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4">
-                <Cloud className="w-8 h-8 text-primary" />
-              </div>
-              <p className="text-muted-foreground text-center">No messages yet</p>
-              <p className="text-xs text-muted-foreground/60 text-center mt-1">Start the conversation!</p>
-            </div>
-          ) : (
-            groupedMessages.map((group, groupIndex) => (
-              <div key={groupIndex}>
-                {/* Date divider */}
-                <div className="flex items-center justify-center my-4">
-                  <span className="px-3 py-1 text-xs text-muted-foreground bg-card/80 rounded-full border border-border/50 backdrop-blur-sm">
-                    {group.date}
-                  </span>
+      {/* Main content area with AI panels */}
+      <div className="flex-1 flex gap-3 min-h-0 p-3">
+        {/* Chat area */}
+        <div className="flex-1 flex flex-col min-w-0 bg-card border border-border rounded-lg overflow-hidden">
+          {/* Chat messages */}
+          <div 
+            className="flex-1 overflow-auto relative"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }}
+          >
+            <div className="p-4 space-y-2">
+              {messages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center py-20">
+                  <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4">
+                    <Cloud className="w-8 h-8 text-primary" />
+                  </div>
+                  <p className="text-muted-foreground text-center">No messages yet</p>
+                  <p className="text-xs text-muted-foreground/60 text-center mt-1">Start the conversation!</p>
                 </div>
+              ) : (
+                groupedMessages.map((group, groupIndex) => (
+                  <div key={groupIndex}>
+                    {/* Date divider */}
+                    <div className="flex items-center justify-center my-4">
+                      <span className="px-3 py-1 text-xs text-muted-foreground bg-card/80 rounded-full border border-border/50 backdrop-blur-sm">
+                        {group.date}
+                      </span>
+                    </div>
 
-                {group.messages.map((msg, msgIndex) => {
-                  const isOwn = msg.user_id === currentUser?.id;
-                  const showUsername = !isOwn && (msgIndex === 0 || group.messages[msgIndex - 1]?.user_id !== msg.user_id);
-                  
-                  const showAvatar = !isOwn && (msgIndex === group.messages.length - 1 || group.messages[msgIndex + 1]?.user_id !== msg.user_id);
+                    {group.messages.map((msg, msgIndex) => {
+                      const isOwn = msg.user_id === currentUser?.id;
+                      const showUsername = !isOwn && (msgIndex === 0 || group.messages[msgIndex - 1]?.user_id !== msg.user_id);
+                      
+                      const showAvatar = !isOwn && (msgIndex === group.messages.length - 1 || group.messages[msgIndex + 1]?.user_id !== msg.user_id);
 
-                  return (
-                    <motion.div
-                      key={msg.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"} mb-1`}
-                    >
-                      {!isOwn && (
-                        <div className="w-8">
-                          {showAvatar && (
-                            <Avatar className="w-8 h-8">
-                              <AvatarImage src={msg.profiles?.avatar_url || undefined} />
-                              <AvatarFallback>
-                                <User className="w-4 h-4 text-muted-foreground" />
-                              </AvatarFallback>
-                            </Avatar>
+                      return (
+                        <motion.div
+                          key={msg.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className={`flex items-end gap-2 ${isOwn ? "justify-end" : "justify-start"} mb-1`}
+                        >
+                          {!isOwn && (
+                            <div className="w-8">
+                              {showAvatar && (
+                                <Avatar className="w-8 h-8">
+                                  <AvatarImage src={msg.profiles?.avatar_url || undefined} />
+                                  <AvatarFallback>
+                                    <User className="w-4 h-4 text-muted-foreground" />
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+                            </div>
                           )}
-                        </div>
-                      )}
-                      <div
-                        className={`relative max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${
-                          isOwn
-                            ? "bg-primary text-primary-foreground rounded-br-sm"
-                            : "bg-card border border-border rounded-bl-sm"
-                        }`}
-                      >
-                        {/* Message tail */}
-                        <div 
-                          className={`absolute bottom-0 w-3 h-3 ${
-                            isOwn ? "right-[-6px]" : "left-[-6px]"
-                          }`}
-                          style={{
-                            background: isOwn ? "hsl(var(--primary))" : "hsl(var(--card))",
-                            clipPath: isOwn 
-                              ? "polygon(0 0, 0% 100%, 100% 100%)" 
-                              : "polygon(100% 0, 0% 100%, 100% 100%)",
-                          }}
-                        />
-                        
-                        {showUsername && (
-                          <p className={`text-xs font-semibold mb-1 ${getUserColor(msg.user_id)}`}>
-                            ~{msg.username}
-                          </p>
-                        )}
-                        <p className="text-sm leading-relaxed break-words">{msg.message}</p>
-                        <div className={`flex items-center justify-end gap-1 mt-1 ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                          <span className="text-[10px]">{formatTime(msg.created_at)}</span>
-                          {isOwn && <CheckCheck className="w-3.5 h-3.5" />}
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                          <div
+                            className={`relative max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${
+                              isOwn
+                                ? "bg-primary text-primary-foreground rounded-br-sm"
+                                : "bg-card border border-border rounded-bl-sm"
+                            }`}
+                          >
+                            {/* Message tail */}
+                            <div 
+                              className={`absolute bottom-0 w-3 h-3 ${
+                                isOwn ? "right-[-6px]" : "left-[-6px]"
+                              }`}
+                              style={{
+                                background: isOwn ? "hsl(var(--primary))" : "hsl(var(--card))",
+                                clipPath: isOwn 
+                                  ? "polygon(0 0, 0% 100%, 100% 100%)" 
+                                  : "polygon(100% 0, 0% 100%, 100% 100%)",
+                              }}
+                            />
+                            
+                            {showUsername && (
+                              <p className={`text-xs font-semibold mb-1 ${getUserColor(msg.user_id)}`}>
+                                ~{msg.username}
+                              </p>
+                            )}
+                            <p className="text-sm leading-relaxed break-words">
+                              {renderMentionedText(msg.message, "text-blue-400")}
+                            </p>
+                            <div className={`flex items-center justify-end gap-1 mt-1 ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                              <span className="text-[10px]">{formatTime(msg.created_at)}</span>
+                              {isOwn && <CheckCheck className="w-3.5 h-3.5" />}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            {typingUsers.length > 0 && (
+              <div className="absolute bottom-2 left-4 text-xs text-muted-foreground italic">
+                {typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
               </div>
-            ))
-          )}
-          <div ref={messagesEndRef} />
+            )}
+            {adminLoginOpen && (
+              <div className="absolute top-6 right-6 bg-black/80 p-3 rounded-lg border border-border z-50 w-64">
+                <form onSubmit={handleAdminLogin} className="flex flex-col gap-2">
+                  <input value={adminUserInput} onChange={(e) => setAdminUserInput(e.target.value)} placeholder="username" className="px-2 py-1 bg-card border border-border rounded text-sm" />
+                  <input value={adminPassInput} onChange={(e) => setAdminPassInput(e.target.value)} placeholder="password" type="password" className="px-2 py-1 bg-card border border-border rounded text-sm" />
+                  <div className="flex items-center justify-between">
+                    <button type="submit" className="px-3 py-1 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded text-sm">Login</button>
+                    <button type="button" onClick={() => setAdminLoginOpen(false)} className="px-3 py-1 text-sm text-muted-foreground">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+
+          {/* Input area */}
+          <form onSubmit={sendMessage} className="p-3 bg-card border-t border-border flex items-center gap-2 relative">
+            <div className="flex-1 relative">
+              <div className="relative">
+                <input
+                  ref={inputRef}
+                  value={newMessage}
+                  onChange={(e) => handleMessageInputChange(e.target.value)}
+                  placeholder="Type a message... (use @ to mention)"
+                  className="w-full px-4 py-2.5 bg-background border border-border rounded-full text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground neon-item"
+                />
+                {/* Mention Autocomplete */}
+                <MentionAutocomplete
+                  isActive={mentionActive}
+                  query={mentionQuery}
+                  position={mentionPosition}
+                  onSelectMention={handleSelectMention}
+                  currentUserId={currentUser?.id}
+                />
+              </div>
+            </div>
+            <button 
+              type="submit" 
+              disabled={!newMessage.trim()}
+              className="w-10 h-10 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            >
+              <Send className="w-4 h-4 text-primary-foreground" />
+            </button>
+
+            {/* Notification Bell */}
+            {notifications.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  className="w-10 h-10 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors relative"
+                >
+                  <Bell className="w-4 h-4 text-foreground" />
+                  <span className="absolute top-0 right-0 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+                    {notifications.length}
+                  </span>
+                </button>
+              </div>
+            )}
+          </form>
         </div>
-        {typingUsers.length > 0 && (
-          <div className="absolute bottom-2 left-4 text-xs text-muted-foreground italic">
-            {typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+
+        {/* AI Panels Sidebar */}
+        <div className="w-96 flex flex-col gap-3 min-h-0">
+          {/* Cloud AI Panel - Always visible */}
+          <div className="flex-1 flex flex-col bg-card border border-border rounded-lg overflow-hidden shadow-lg">
+            <div className="p-3 bg-gradient-to-r from-blue-600 to-cyan-600 border-b border-border">
+              <h3 className="font-semibold text-white text-sm">Cloud AI</h3>
+              <p className="text-xs text-blue-200">Always available</p>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <CloudAiModal isOpen={true} onClose={() => {}} sophistication="very-high" />
+            </div>
           </div>
-        )}
-        {adminLoginOpen && (
-          <div className="absolute top-6 right-6 bg-black/80 p-3 rounded-lg border border-border z-50 w-64">
-            <form onSubmit={handleAdminLogin} className="flex flex-col gap-2">
-              <input value={adminUserInput} onChange={(e) => setAdminUserInput(e.target.value)} placeholder="username" className="px-2 py-1 bg-card border border-border rounded text-sm" />
-              <input value={adminPassInput} onChange={(e) => setAdminPassInput(e.target.value)} placeholder="password" type="password" className="px-2 py-1 bg-card border border-border rounded text-sm" />
-              <div className="flex items-center justify-between">
-                <button type="submit" className="px-3 py-1 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded text-sm">Login</button>
-                <button type="button" onClick={() => setAdminLoginOpen(false)} className="px-3 py-1 text-sm text-muted-foreground">Cancel</button>
+
+          {/* Anon AI Panel - Admin only */}
+          {currentUser?.isAdmin && (
+            <div className="flex-1 flex flex-col bg-card border border-border rounded-lg overflow-hidden shadow-lg">
+              <div className="p-3 bg-gradient-to-r from-purple-600 to-pink-600 border-b border-border">
+                <h3 className="font-semibold text-white text-sm">Anon AI</h3>
+                <p className="text-xs text-purple-200">Admin access required</p>
               </div>
-            </form>
-          </div>
-        )}
-
-        {/* Profile modal */}
-        {profileOpen && (
-          <ProfileModal
-            isOpen={profileOpen}
-            onClose={() => setProfileOpen(false)}
-            points={currentUser?.points}
-            activity={currentUser ? messages.filter(m => m.user_id === currentUser.id).slice(-5).map(m => `${new Date(m.created_at).toLocaleString()}: ${m.message}`) : []}
-          />
-        )}
-
-        {/* Cloud Ai modal (available to all) */}
-        <CloudAiModal isOpen={cloudAiOpen} onClose={() => setCloudAiOpen(false)} sophistication="very-high" />
-
-        {/* Anon Ai modal (admin only) */}
-        <AnonAiModal isOpen={anonAiOpen} onClose={() => setAnonAiOpen(false)} sophistication="very-high" />
-
-        {/* Activity history modal */}
-        <ActivityHistory isOpen={profileOpen && !!currentUser} onClose={() => setProfileOpen(false)} userId={currentUser?.id} />
+              <div className="flex-1 overflow-hidden">
+                <AnonAiModal isOpen={true} onClose={() => {}} sophistication="very-high" />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Floating Cloud AI button (bottom-right) */}
-      <motion.button
-        onClick={() => setCloudAiOpen(true)}
-        initial={{ y: 0 }}
-        animate={{ y: [0, -10, 0] }}
-        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute right-6 bottom-24 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-xl border border-border text-white neon-flash"
-        aria-label="Open Cloud AI"
-        title="Open Cloud AI"
-      >
-        <Cloud className="w-6 h-6 text-primary-foreground" />
-      </motion.button>
+      {/* Modals */}
+      {profileOpen && (
+        <ProfileModal
+          isOpen={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          points={currentUser?.points}
+          activity={currentUser ? messages.filter(m => m.user_id === currentUser.id).slice(-5).map(m => `${new Date(m.created_at).toLocaleString()}: ${m.message}`) : []}
+        />
+      )}
 
-      {/* Input - WhatsApp style */}
-      <form onSubmit={sendMessage} className="p-3 bg-card border-t border-border flex items-center gap-2">
-        <div className="flex-1 relative">
-            <input
-            value={newMessage}
-            onChange={(e) => {
-              setNewMessage(e.target.value);
-              handleTyping();
-            }}
-            placeholder="Type a message..."
-              className="w-full px-4 py-2.5 bg-background border border-border rounded-full text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground neon-item"
-          />
-        </div>
-        <button 
-          type="submit" 
-          disabled={!newMessage.trim()}
-          className="w-10 h-10 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-        >
-          <Send className="w-4 h-4 text-primary-foreground" />
-        </button>
-      </form>
+      {/* Activity history modal */}
+      <ActivityHistory isOpen={profileOpen && !!currentUser} onClose={() => setProfileOpen(false)} userId={currentUser?.id} />
+
+      {/* Notifications Panel */}
+      <AnimatePresence>
+        {notifications.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="absolute bottom-6 right-6 bg-card border border-border rounded-lg shadow-xl p-4 max-w-xs z-50"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-foreground text-sm">Mentions</h3>
+              <button
+                onClick={() => setNotifications([])}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {notifications.map((notif) => (
+                <motion.div
+                  key={notif.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="p-2 bg-primary/10 rounded border border-primary/20 text-sm"
+                >
+                  <p className="text-foreground">
+                    <span className="font-semibold text-blue-400">@{notif.username}</span> mentioned you
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(notif.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };                                                                                
