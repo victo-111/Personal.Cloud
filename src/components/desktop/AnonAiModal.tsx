@@ -282,7 +282,7 @@ export const AnonAiModal: React.FC<Props> = ({ isOpen, onClose, sophistication =
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="w-[720px] max-w-[95%] neon-flash">
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">🔐 KaliGpt — Advanced Cybersecurity & Penetration Testing Intelligence</DialogTitle>
+          <DialogTitle className="text-lg font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">🔐 Anon AI — Advanced Cybersecurity & Penetration Testing Intelligence</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Enterprise-grade defensive cybersecurity & ethical penetration testing expertise. Threat analysis, secure architecture, forensics, compliance, and authorized security auditing. Strictly lawful and defensive guidance only.
           </DialogDescription>
@@ -319,7 +319,7 @@ export const AnonAiModal: React.FC<Props> = ({ isOpen, onClose, sophistication =
               {responses.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <div className="text-4xl mb-3">🔐</div>
-                  <p className="text-xs font-semibold">KaliGpt - Cybersecurity & Penetration Testing Intelligence</p>
+                  <p className="text-xs font-semibold">Anon AI - Cybersecurity & Penetration Testing Intelligence</p>
                   <p className="text-[11px] text-muted-foreground/70 mt-3 leading-relaxed max-w-sm">
                     <strong>Defensive Security:</strong> 🛡️ Threat Assessment • 🔍 Forensics • 🏗️ Secure Architecture<br/>
                     <strong>Penetration Testing:</strong> 🎯 Vulnerability Assessment • 🔓 Exploitation Analysis • 📊 Reporting<br/>
@@ -347,23 +347,59 @@ export const AnonAiModal: React.FC<Props> = ({ isOpen, onClose, sophistication =
               className="h-1 mb-2 cursor-row-resize bg-border/50"
             />
 
-            <form onSubmit={handleSend} className="flex gap-2">
-              <input
-                ref={inputRef}
-                className="flex-1 px-3 py-2 bg-background border border-border rounded text-sm neon-border focus:border-red-400/50 focus:outline-none transition"
-                placeholder="Ask about threats, forensics, architecture, tools, compliance..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-              />
-              <button type="submit" className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition disabled:opacity-50" disabled={!query.trim() || loading}>
-                {loading ? "Analyzing..." : "Send"}
-              </button>
+            <form onSubmit={handleSend} className="space-y-2">
+              <div className="flex gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setQuery("What are the OWASP Top 10 vulnerabilities for 2024?")}
+                  className="px-2 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded text-xs border border-red-500/30 transition"
+                  title="Quick query"
+                >
+                  🔓 OWASP Top 10
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuery("How do I perform a network penetration test? What's the methodology?")}
+                  className="px-2 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded text-xs border border-red-500/30 transition"
+                  title="Quick query"
+                >
+                  🎯 PT Methodology
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuery("Explain SQL injection attacks and how to detect/prevent them")}
+                  className="px-2 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded text-xs border border-red-500/30 transition"
+                  title="Quick query"
+                >
+                  💉 SQL Injection
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuery("What is responsible disclosure and how do I report vulnerabilities?")}
+                  className="px-2 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded text-xs border border-red-500/30 transition"
+                  title="Quick query"
+                >
+                  📢 Disclosure
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  ref={inputRef}
+                  className="flex-1 px-3 py-2 bg-background border border-border rounded text-sm neon-border focus:border-red-400/50 focus:outline-none transition"
+                  placeholder="Ask about threats, forensics, architecture, tools, compliance..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                />
+                <button type="submit" className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-semibold transition disabled:opacity-50" disabled={!query.trim() || loading}>
+                  {loading ? "Analyzing..." : "Send"}
+                </button>
+              </div>
             </form>
           </>
         ) : (
@@ -381,33 +417,65 @@ export const AnonAiModal: React.FC<Props> = ({ isOpen, onClose, sophistication =
               )}
             </div>
 
-            <form onSubmit={handleTerminalSend} className="flex gap-2">
-              <input
-                ref={inputRef}
-                className="flex-1 px-3 py-2 bg-black border border-border rounded text-sm text-green-300 font-mono"
-                placeholder="simulate> ls -la"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleTerminalSend();
-                    return;
-                  }
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    const last = terminalHistory[terminalHistory.length - 1]?.cmd || '';
-                    setQuery(last);
-                  }
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setQuery('');
-                  }
-                }}
-              />
-              <button type="submit" className="px-3 py-2 bg-primary text-primary-foreground rounded disabled:opacity-50" disabled={!query.trim() || loading}>
-                {loading ? "Running..." : "Run"}
-              </button>
+            <form onSubmit={handleTerminalSend} className="space-y-2">
+              <div className="flex gap-1.5 flex-wrap text-xs">
+                <button
+                  type="button"
+                  onClick={() => setQuery("help")}
+                  className="px-2 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 rounded border border-green-500/30 transition font-mono"
+                >
+                  ?/ help
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuery("nmap -sV target.com")}
+                  className="px-2 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 rounded border border-green-500/30 transition font-mono"
+                >
+                  nmap -sV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuery("sqlmap --help")}
+                  className="px-2 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 rounded border border-green-500/30 transition font-mono"
+                >
+                  sqlmap
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuery("metasploit --version")}
+                  className="px-2 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 rounded border border-green-500/30 transition font-mono"
+                >
+                  metasploit
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  ref={inputRef}
+                  className="flex-1 px-3 py-2 bg-black border border-border rounded text-sm text-green-300 font-mono"
+                  placeholder="simulate> ls -la"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleTerminalSend();
+                      return;
+                    }
+                    if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      const last = terminalHistory[terminalHistory.length - 1]?.cmd || '';
+                      setQuery(last);
+                    }
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setQuery('');
+                    }
+                  }}
+                />
+                <button type="submit" className="px-3 py-2 bg-primary text-primary-foreground rounded disabled:opacity-50" disabled={!query.trim() || loading}>
+                  {loading ? "Running..." : "Run"}
+                </button>
+              </div>
             </form>
           </>
         )}
