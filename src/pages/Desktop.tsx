@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { 
-  Folder, FileText, Terminal, Settings, Image, Music, 
   Globe, Calculator, Clock, Wifi, Battery, 
   Volume2, X, Minus, Square, Search, Code, Cloud, LogOut, User
 } from "lucide-react";
@@ -146,6 +146,8 @@ const Desktop = () => {
   const [globalAnonAiOpen, setGlobalAnonAiOpen] = useState(false);
   const [globalKaliTerminalOpen, setGlobalKaliTerminalOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userPoints, setUserPoints] = useState(100);
+  const [pointsNotificationShown, setPointsNotificationShown] = useState(false);
   
   // Dragging state for windows
   const [draggingWindow, setDraggingWindow] = useState<string | null>(null);
@@ -207,13 +209,20 @@ const Desktop = () => {
         if (stored) {
           const p = JSON.parse(stored);
           setIsAdmin(!!p.isAdmin);
+          if (p.points) {
+            setUserPoints(p.points);
+            // Check if should show notification
+            if (p.points >= 500 && !pointsNotificationShown) {
+              setPointsNotificationShown(true);
+            }
+          }
         }
       } catch (e) {
         // ignore
       }
     };
     fetchAvatar();
-  }, [user?.id]);
+  }, [user?.id, pointsNotificationShown]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -239,6 +248,46 @@ const Desktop = () => {
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Points accumulation effect - 1.8 points per second when user is active
+  useEffect(() => {
+    const pointsInterval = setInterval(() => {
+      setUserPoints((prevPoints) => {
+        const newPoints = Math.floor(prevPoints + 1.8);
+        
+        // Update localStorage
+        if (user?.id) {
+          try {
+            const stored = localStorage.getItem(`pc:user:${user.id}`);
+            const userData = stored ? JSON.parse(stored) : { points: 100 };
+            userData.points = newPoints;
+            localStorage.setItem(`pc:user:${user.id}`, JSON.stringify(userData));
+          } catch (e) {
+            console.debug('Failed to update points in localStorage', e);
+          }
+        }
+        
+        // Show notification when reaching 500 points
+        if (newPoints >= 500 && !pointsNotificationShown) {
+          toast.success("🎉 You've unlocked group creation! Click the 👥 icon in Cloud Chat to create groups.", {
+            duration: 5000,
+          });
+          setPointsNotificationShown(true);
+          
+          // Also update Supabase
+          if (user?.id) {
+            supabase.from('profiles').update({ points: newPoints }).eq('user_id', user.id).catch(e => {
+              console.debug('Failed to update points in Supabase', e);
+            });
+          }
+        }
+        
+        return newPoints;
+      });
+    }, 1000); // Update every second
+    
+    return () => clearInterval(pointsInterval);
+  }, [user?.id, pointsNotificationShown]);
 
   // Window dragging handlers
   const handleWindowMouseDown = (e: React.MouseEvent, windowId: string, windowPos: { x: number; y: number }) => {
@@ -331,7 +380,7 @@ const Desktop = () => {
       case "music":
         return <MusicPlayer />;
       case "chat":
-        return <CloudChat />;
+        return <CloudChat userPoints={userPoints} />;
       case "photos":
         return <PhotoGallery />;
       case "terminal":

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Check, CheckCheck, Cloud, Sparkles, LogIn, X, MessageCircle, AtSign } from "lucide-react";
+import { Send, Check, CheckCheck, Cloud, Sparkles, LogIn, X, MessageCircle, AtSign, Users } from "lucide-react";
+import { toast } from "sonner";
 import { CloudAiModal } from "./CloudAiModal";
 
 interface Message {
@@ -26,7 +27,11 @@ interface User {
   username: string;
 }
 
-export const CloudChat = () => {
+interface CloudChatProps {
+  userPoints?: number;
+}
+
+export const CloudChat = ({ userPoints = 0 }: CloudChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<{ id: string; email: string } | null>(null);
@@ -269,6 +274,30 @@ export const CloudChat = () => {
           <h3 className="font-semibold text-foreground">Cloud Chat</h3>
           <p className="text-xs text-muted-foreground">CloudSpace Community</p>
         </div>
+        
+        {/* Group Creation Button */}
+        <button
+          onClick={() => {
+            if (userPoints >= 500) {
+              toast.info("👥 Group creation feature coming soon!", { duration: 3000 });
+            } else {
+              toast.error(
+                `🔒 You need 500+ points to create groups. Current: ${userPoints}/500 points`,
+                { duration: 4000 }
+              );
+            }
+          }}
+          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            userPoints >= 500
+              ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl"
+              : "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+          }`}
+          title={userPoints >= 500 ? "Create a group" : `Need ${500 - userPoints} more points`}
+        >
+          <Users className="w-4 h-4" />
+          <span className="hidden sm:inline text-xs">Groups</span>
+        </button>
+        
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
           Online
