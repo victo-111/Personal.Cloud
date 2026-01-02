@@ -1,8 +1,19 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, SkipBack, SkipForward, Volume2 } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, Upload, Trash2, Loader2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-const demoTracks = [
+interface Track {
+  id: string | number;
+  title: string;
+  artist: string;
+  duration: number;
+  url?: string;
+  isUploaded?: boolean;
+}
+
+const demoTracks: Track[] = [
   { id: 1, title: "Neon Dreams", artist: "Cyber Wave", duration: 180 },
   { id: 2, title: "Digital Rain", artist: "Matrix Sound", duration: 210 },
   { id: 3, title: "Electric Soul", artist: "Synth Master", duration: 195 },
@@ -15,7 +26,11 @@ export const MusicPlayer = () => {
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState([75]);
   const [analyzerData, setAnalyzerData] = useState<number[]>(new Array(32).fill(0));
+  const [tracks, setTracks] = useState<Track[]>(demoTracks);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const animationRef = useRef<number>();
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     let rafId: number | undefined;
@@ -51,13 +66,105 @@ export const MusicPlayer = () => {
   const togglePlay = () => setIsPlaying(!isPlaying);
 
   const nextTrack = () => {
-    setCurrentTrack((prev) => (prev + 1) % demoTracks.length);
+    setCurrentTrack((prev) => (prev + 1) % tracks.length);
     setProgress(0);
   };
 
   const prevTrack = () => {
-    setCurrentTrack((prev) => (prev - 1 + demoTracks.length) % demoTracks.length);
+    setCurrentTrack((prev) => (prev - 1 + tracks.length) % tracks.length);
     setProgress(0);
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("audio/")) {
+      toast.error("Please select an audio file");
+      return;
+    }
+
+    // Validate file size (max 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("File size must be less than 50MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("You must be logged in to upload music");
+        setUploading(false);
+        return;
+      }
+
+      const fileName = `${Date.now()}_${file.name}`;
+      const filePath = `${user.id}/music/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("user-music")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        toast.error("Failed to upload music file");
+        setUploading(false);
+        return;
+      }
+
+      // Get public URL
+      const { data: publicData } = supabase.storage
+        .from("user-music")
+        .getPublicUrl(filePath);
+
+      // Get audio duration
+      const audio = new Audio(publicData.publicUrl);
+      audio.onloadedmetadata = () => {
+        const newTrack: Track = {
+          id: `uploaded_${Date.now()}`,
+          title: file.name.replace(/\.[^.]+$/, ""),
+          artist: "Your Upload",
+          duration: Math.floor(audio.duration),
+          url: publicData.publicUrl,
+          isUploaded: true,
+        };
+
+        setTracks([...tracks, newTrack]);
+        toast.success("Music uploaded successfully!");
+        setUploading(false);
+
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      };
+
+      audio.onerror = () => {
+        toast.error("Could not read audio file duration");
+        setUploading(false);
+      };
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload music");
+      setUploading(false);
+    }
+  };
+
+  const deleteTrack = (id: string | number) => {
+    const newTracks = tracks.filter(t => t.id !== id);
+    setTracks(newTracks);
+    
+    if (currentTrack >= newTracks.length) {
+      setCurrentTrack(Math.max(0, newTracks.length - 1));
+    }
+    
+    toast.success("Track removed from playlist");
   };
 
   const formatTime = (seconds: number) => {
@@ -66,7 +173,7 @@ export const MusicPlayer = () => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const track = demoTracks[currentTrack];
+  const track = tracks[currentTrack];
   const currentTime = Math.floor((progress / 100) * track.duration);
 
   return (
@@ -151,25 +258,75 @@ export const MusicPlayer = () => {
       </div>
 
       {/* Playlist */}
-      <div className="border-t border-border max-h-32 overflow-auto">
-        {demoTracks.map((t, i) => (
+      <div className="border-t border-border flex flex-col">
+        {/* Upload Button */}
+        <div className="px-4 py-3 border-b border-border">
           <button
-            key={t.id}
-            onClick={() => { setCurrentTrack(i); setProgress(0); }}
-            className={`w-full px-4 py-2 flex items-center justify-between hover:bg-primary/10 transition-colors ${
-              i === currentTrack ? "bg-primary/20" : ""
-            }`}
+            onClick={handleUploadClick}
+            disabled={uploading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-colors disabled:opacity-50"
           >
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
-              <div className="text-left">
-                <p className="text-sm font-medium">{t.title}</p>
-                <p className="text-xs text-muted-foreground">{t.artist}</p>
-              </div>
-            </div>
-            <span className="text-xs text-muted-foreground">{formatTime(t.duration)}</span>
+            {uploading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                Upload Music
+              </>
+            )}
           </button>
-        ))}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </div>
+
+        {/* Tracks List */}
+        <div className="max-h-32 overflow-auto">
+          {tracks.length === 0 ? (
+            <div className="p-4 text-center text-muted-foreground text-sm">
+              No tracks. Upload music to get started!
+            </div>
+          ) : (
+            tracks.map((t, i) => (
+              <button
+                key={t.id}
+                onClick={() => { setCurrentTrack(i); setProgress(0); }}
+                className={`w-full px-4 py-2 flex items-center justify-between hover:bg-primary/10 transition-colors group ${
+                  i === currentTrack ? "bg-primary/20" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
+                  <div className="text-left flex-1">
+                    <p className="text-sm font-medium">{t.title}</p>
+                    <p className="text-xs text-muted-foreground">{t.artist}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{formatTime(t.duration)}</span>
+                  {t.isUploaded && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteTrack(t.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/20 rounded transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </button>
+                  )}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
