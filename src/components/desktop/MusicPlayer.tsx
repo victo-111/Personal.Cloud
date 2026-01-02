@@ -13,20 +13,13 @@ interface Track {
   isUploaded?: boolean;
 }
 
-const demoTracks: Track[] = [
-  { id: 1, title: "Neon Dreams", artist: "Cyber Wave", duration: 180 },
-  { id: 2, title: "Digital Rain", artist: "Matrix Sound", duration: 210 },
-  { id: 3, title: "Electric Soul", artist: "Synth Master", duration: 195 },
-  { id: 4, title: "Future Bass", artist: "Cloud Runner", duration: 165 },
-];
-
 export const MusicPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(0);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState([75]);
   const [analyzerData, setAnalyzerData] = useState<number[]>(new Array(32).fill(0));
-  const [tracks, setTracks] = useState<Track[]>(demoTracks);
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const animationRef = useRef<number>();
@@ -174,7 +167,7 @@ export const MusicPlayer = () => {
   };
 
   const track = tracks[currentTrack];
-  const currentTime = Math.floor((progress / 100) * track.duration);
+  const currentTime = track ? Math.floor((progress / 100) * track.duration) : 0;
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-background to-card">
@@ -195,13 +188,22 @@ export const MusicPlayer = () => {
 
       {/* Track info */}
       <div className="text-center py-4">
-        <h2 
-          className="text-xl font-bold text-foreground"
-          style={{ textShadow: "0 0 10px hsl(var(--primary))" }}
-        >
-          {track.title}
-        </h2>
-        <p className="text-muted-foreground">{track.artist}</p>
+        {track ? (
+          <>
+            <h2 
+              className="text-xl font-bold text-foreground"
+              style={{ textShadow: "0 0 10px hsl(var(--primary))" }}
+            >
+              {track.title}
+            </h2>
+            <p className="text-muted-foreground">{track.artist}</p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-xl font-bold text-foreground">No Tracks</h2>
+            <p className="text-muted-foreground">Upload music to get started</p>
+          </>
+        )}
       </div>
 
       {/* Progress bar */}
