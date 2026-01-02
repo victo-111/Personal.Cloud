@@ -221,8 +221,12 @@ export const CloudChat = () => {
       <form onSubmit={sendMessage} className="p-3 bg-card border-t border-border flex items-center gap-2">
         <button
           type="button"
-          onClick={() => setCloudAiOpen(true)}
-          className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center hover:bg-blue-500/30 transition-colors shadow-lg border border-blue-400/30"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setCloudAiOpen(true);
+          }}
+          className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center hover:bg-blue-500/30 transition-colors shadow-lg border border-blue-400/30 flex-shrink-0"
           title="Open Cloud AI"
         >
           <Sparkles className="w-4 h-4 text-blue-400" />
@@ -238,7 +242,7 @@ export const CloudChat = () => {
         <button 
           type="submit" 
           disabled={!newMessage.trim()}
-          className="w-10 h-10 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+          className="w-10 h-10 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex-shrink-0"
         >
           <Send className="w-4 h-4 text-primary-foreground" />
         </button>
